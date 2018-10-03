@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard1.1;netstandard2.0;net45;netcoreapp1.0</TargetFrameworks>
     <Version>4.3.3</Version>
     <Company>Tyrrrz</Company>
     <Authors>$(Company)</Authors>
@@ -17,6 +16,7 @@
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
+      <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net45'">
@@ -24,8 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AngleSharp" Version="0.9.9.1" />
-    <PackageReference Include="Newtonsoft.Json" Version="11.0.1" />
+      <PackageReference Include="AngleSharp" Version="0.9.10"/>
+      <PackageReference Include="Newtonsoft.Json" Version="11.0.2"/>
   </ItemGroup>
 
 </Project>
