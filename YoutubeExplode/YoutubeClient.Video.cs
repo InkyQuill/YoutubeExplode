@@ -226,7 +226,7 @@ namespace YoutubeExplode
 
             var thumbnails = new ThumbnailSet(videoId);
             return new Video(videoId, author, uploadDate, title, description, thumbnails, duration, keywords,
-                statistics);
+                statistics, videoInfo);
         }
 
         /// <inheritdoc />
