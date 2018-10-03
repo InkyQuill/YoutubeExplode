@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -51,26 +50,36 @@ namespace YoutubeExplode
 
         private async Task<string> GetVideoInfoRawAsync(string videoId, string el = "", string sts = "")
         {
-            var eurl = $"https://youtube.googleapis.com/v/{videoId}".UrlEncode(); // this makes all videos embeddable
+            // This parameter does magic and a lot of videos don't work without it
+            var eurl = $"https://youtube.googleapis.com/v/{videoId}".UrlEncode();
+
             var url = $"https://www.youtube.com/get_video_info?video_id={videoId}&el={el}&sts={sts}&eurl={eurl}&hl=en";
             return await _httpClient.GetStringAsync(url).ConfigureAwait(false);
         }
 
         private async Task<IReadOnlyDictionary<string, string>> GetVideoInfoAsync(string videoId, string sts = "")
         {
+            // Get video info with 'el=embedded'
             var raw = await GetVideoInfoRawAsync(videoId, "embedded", sts).ConfigureAwait(false);
             var videoInfo = UrlEx.SplitQuery(raw);
 
-            // Check if there is an error
-            if (videoInfo.ContainsKey("errorcode"))
-            {
-                var errorCode = videoInfo["errorcode"].ParseInt();
-                var errorReason = videoInfo["reason"];
+            // If there is no error - return
+            if (!videoInfo.ContainsKey("errorcode"))
+                return videoInfo;
 
-                throw new VideoUnavailableException(videoId, errorCode, errorReason);
-            }
+            // Get video info with 'el=detailpage'
+            raw = await GetVideoInfoRawAsync(videoId, "detailpage", sts).ConfigureAwait(false);
+            videoInfo = UrlEx.SplitQuery(raw);
 
-            return videoInfo;
+            // If there is no error - return
+            if (!videoInfo.ContainsKey("errorcode"))
+                return videoInfo;
+
+            // If there is error - throw
+            var errorCode = videoInfo["errorcode"].ParseInt();
+            var errorReason = videoInfo["reason"];
+
+            throw new VideoUnavailableException(videoId, errorCode, errorReason);
         }
 
         private async Task<PlayerContext> GetVideoPlayerContextAsync(string videoId)
@@ -97,6 +106,7 @@ namespace YoutubeExplode
             // Original code credit:
             // https://github.com/flagbug/YoutubeExtractor/blob/3106efa1063994fd19c0e967793315f6962b2d3c/YoutubeExtractor/YoutubeExtractor/Decipherer.cs
             // No copyright, MIT license
+            // Regexes found in this method have been sourced by contributors and from other projects
 
             // Try to resolve from cache first
             var playerSource = _playerSourceCache.GetOrDefault(sourceUrl);
@@ -107,7 +117,7 @@ namespace YoutubeExplode
             var sourceRaw = await _httpClient.GetStringAsync(sourceUrl).ConfigureAwait(false);
 
             // Find the name of the function that handles deciphering
-            var entryPoint = Regex.Match(sourceRaw, @"\""signature"",\s?([a-zA-Z0-9\$]+)\(").Groups[1].Value;
+            var entryPoint = Regex.Match(sourceRaw, @"(\w+)&&(\w+)\.set\(\w+,(\w+)\(\1\)\);return\s+\2").Groups[3].Value;
             if (entryPoint.IsBlank())
                 throw new ParseException("Could not find the entry function for signature deciphering.");
 
@@ -132,7 +142,7 @@ namespace YoutubeExplode
                     break;
 
                 // Get the function called on this line
-                var calledFuncName = Regex.Match(line, @"\w+\.(\w+)\(").Groups[1].Value;
+                var calledFuncName = Regex.Match(line, @"\w+(?:.|\[)(\""?\w+(?:\"")?)\]?\(").Groups[1].Value;
                 if (calledFuncName.IsBlank())
                     continue;
 
@@ -157,7 +167,7 @@ namespace YoutubeExplode
             foreach (var line in entryPointLines)
             {
                 // Get the function called on this line
-                var calledFuncName = Regex.Match(line, @"\w+\.(\w+)\(").Groups[1].Value;
+                var calledFuncName = Regex.Match(line, @"\w+(?:.|\[)(\""?\w+(?:\"")?)\]?\(").Groups[1].Value;
                 if (calledFuncName.IsBlank())
                     continue;
 
@@ -296,21 +306,11 @@ namespace YoutubeExplode
                     }
 
                     // Probe stream and get content length
-                    long contentLength;
-                    using (var response = await _httpClient.HeadAsync(url).ConfigureAwait(false))
-                    {
-                        // Some muxed streams can be gone
-                        if (response.StatusCode == HttpStatusCode.NotFound ||
-                            response.StatusCode == HttpStatusCode.Gone)
-                            continue;
-
-                        // Ensure success
-                        response.EnsureSuccessStatusCode();
-
-                        // Extract content length
-                        contentLength = response.Content.Headers.ContentLength ??
-                                        throw new ParseException("Could not extract content length of muxed stream.");
-                    }
+                    var contentLength = await _httpClient.GetContentLengthAsync(url, false).ConfigureAwait(false) ?? -1;
+                    
+                    // If probe failed, the stream is gone or faulty
+                    if (contentLength < 0)
+                        continue;
 
                     var streamInfo = new MuxedStreamInfo(itag, url, contentLength);
                     muxedStreamInfoMap[itag] = streamInfo;
