@@ -1,7 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>4.3.3</Version>
+    <Version>4.5.3</Version>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <Company>Tyrrrz</Company>
     <Authors>$(Company)</Authors>
     <Copyright>Copyright (C) 2016-2018 Alexey Golub</Copyright>
@@ -16,7 +17,6 @@
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
-      <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net45'">

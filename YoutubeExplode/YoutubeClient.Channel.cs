@@ -4,12 +4,44 @@ using System.Linq;
 using System.Threading.Tasks;
 using YoutubeExplode.Exceptions;
 using YoutubeExplode.Internal;
+using YoutubeExplode.Internal.Parsers;
 using YoutubeExplode.Models;
 
 namespace YoutubeExplode
 {
     public partial class YoutubeClient
     {
+        private async Task<UserPageParser> GetUserPageParserAsync(string username)
+        {
+            username = username.UrlEncode();
+
+            var url = $"https://www.youtube.com/user/{username}";
+            var raw = await _httpClient.GetStringAsync(url).ConfigureAwait(false);
+
+            return UserPageParser.Initialize(raw);
+        }
+
+        /// <inheritdoc />
+        public async Task<string> GetChannelIdAsync(string username)
+        {
+            username.GuardNotNull(nameof(username));
+
+            if (!ValidateUsername(username))
+                throw new ArgumentException($"Invalid YouTube username [{username}].");
+
+            // Get parser
+            var parser = await GetUserPageParserAsync(username).ConfigureAwait(false);
+
+            // Extract info
+            var channelId = parser.ParseChannelId();
+
+            // Validate channel ID to make sure it was extracted successfully
+            if (!ValidateChannelId(channelId))
+                throw new ParseException("Could not parse channel ID.");
+
+            return channelId;
+        }
+
         /// <inheritdoc />
         public async Task<Channel> GetChannelAsync(string channelId)
         {
@@ -29,7 +61,9 @@ namespace YoutubeExplode
                 throw new ParseException("Channel does not have any videos.");
 
             // Get video channel
-            return await GetVideoAuthorChannelAsync(video.Id).ConfigureAwait(false);
+            var channel = await GetVideoAuthorChannelAsync(video.Id).ConfigureAwait(false);
+
+            return channel;
         }
 
         /// <inheritdoc />
@@ -41,7 +75,7 @@ namespace YoutubeExplode
             if (!ValidateChannelId(channelId))
                 throw new ArgumentException($"Invalid YouTube channel ID [{channelId}].", nameof(channelId));
 
-            // Compose a playlist ID
+            // Compose ID for the playlist that contains all videos uploaded by this channel
             var playlistId = "UU" + channelId.SubstringAfter("UC");
 
             // Get playlist

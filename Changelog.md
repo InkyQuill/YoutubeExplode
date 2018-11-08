@@ -1,3 +1,33 @@
+### v4.5.3 (07-Nov-2018)
+
+- Fixed an issue where signature decipherer was throwing an exception due to recent YouTube changes.
+
+### v4.5.2 (02-Nov-2018)
+
+- Fixed an issue where `GetVideoAsync` was throwing an exception due to recent YouTube changes.
+
+### v4.5.1 (24-Oct-2018)
+
+- Fixed an issue where `GetVideoMediaStreamInfosAsync` was sometimes returning adaptive streams that were not working. There are very rare cases where it still might happen.
+
+### v4.5 (20-Oct-2018)
+
+- Fixed an issue where external links were truncated in `Video.Description` if they are too long.
+- Added support for seeking in `MediaStream`.
+
+### v4.4 (20-Oct-2018)
+
+- Improved `GetVideoAsync`, `GetVideoAuthorChannelAsync` and `GetVideoClosedCaptionTrackInfosAsync` so that they don't fail on unavailable videos.
+- Added extra result validation to `GetChannelIdAsync` to verify that the extracted value is indeed a valid channel ID.
+- Added static methods to parse and validate YouTube usernames.
+
+### v4.3.4 (16-Oct-2018)
+
+- Fixed an issue where `JsonReaderException` was thrown on all videos due to recent YouTube changes.
+- Added support for itag 394.
+- Added `GetChannelIdAsync` method that retrieves channel ID from username.
+- Added support for OL playlists.
+
 ### v4.3.3 (26-Sep-2018)
 
 - Added support for AV1 video codec.
