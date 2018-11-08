@@ -1,18 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Xml.Linq;
-using AngleSharp.Dom.Html;
-using AngleSharp.Extensions;
-using AngleSharp.Parser.Html;
-using Newtonsoft.Json.Linq;
 using YoutubeExplode.Exceptions;
 using YoutubeExplode.Internal;
-using YoutubeExplode.Internal.CipherOperations;
+using YoutubeExplode.Internal.Parsers;
 using YoutubeExplode.Models;
 using YoutubeExplode.Models.ClosedCaptions;
 using YoutubeExplode.Models.MediaStreams;
@@ -21,56 +15,79 @@ namespace YoutubeExplode
 {
     public partial class YoutubeClient
     {
-        private async Task<string> GetVideoEmbedPageRawAsync(string videoId)
+        private async Task<VideoEmbedPageParser> GetVideoEmbedPageParserAsync(string videoId)
         {
             var url = $"https://www.youtube.com/embed/{videoId}?disable_polymer=true&hl=en";
-            return await _httpClient.GetStringAsync(url).ConfigureAwait(false);
+            var raw = await _httpClient.GetStringAsync(url).ConfigureAwait(false);
+
+            return VideoEmbedPageParser.Initialize(raw);
         }
 
-        private async Task<JToken> GetVideoEmbedPageConfigAsync(string videoId)
-        {
-            // TODO: check if video is available
-
-            var raw = await GetVideoEmbedPageRawAsync(videoId).ConfigureAwait(false);
-            var part = raw.SubstringAfter("yt.setConfig({'PLAYER_CONFIG': ").SubstringUntil(",'");
-            return JToken.Parse(part);
-        }
-
-        private async Task<string> GetVideoWatchPageRawAsync(string videoId)
+        private async Task<VideoWatchPageParser> GetVideoWatchPageParserAsync(string videoId)
         {
             var url = $"https://www.youtube.com/watch?v={videoId}&disable_polymer=true&hl=en";
-            return await _httpClient.GetStringAsync(url).ConfigureAwait(false);
+            var raw = await _httpClient.GetStringAsync(url).ConfigureAwait(false);
+
+            return VideoWatchPageParser.Initialize(raw);
         }
 
-        private async Task<IHtmlDocument> GetVideoWatchPageAsync(string videoId)
+        private async Task<VideoInfoParser> GetVideoInfoParserAsync(string videoId, string el, string sts)
         {
-            // TODO: check if video is available
+            // This parameter does magic and a lot of videos don't work without it
+            var eurl = $"https://youtube.googleapis.com/v/{videoId}".UrlEncode();
 
-            var raw = await GetVideoWatchPageRawAsync(videoId).ConfigureAwait(false);
-            return await new HtmlParser().ParseAsync(raw).ConfigureAwait(false);
+            var url = $"https://www.youtube.com/get_video_info?video_id={videoId}&el={el}&sts={sts}&eurl={eurl}&hl=en";
+            var raw = await _httpClient.GetStringAsync(url).ConfigureAwait(false);
+            
+            return VideoInfoParser.Initialize(raw);
         }
 
-        private async Task<string> GetVideoInfoRawAsync(string videoId, string el = "", string sts = "")
+        private async Task<VideoInfoParser> GetVideoInfoParserAsync(string videoId, string sts = "")
         {
-            var eurl = $"https://youtube.googleapis.com/v/{videoId}".UrlEncode(); // this makes all videos embeddable
-            var url = $"https://www.youtube.com/get_video_info?video_id={videoId}{el}&sts={sts}&eurl={eurl}&hl=en";
-            return await _httpClient.GetStringAsync(url).ConfigureAwait(false);
-        }
+            // Get parser for 'el=embedded'
+            var parser = await GetVideoInfoParserAsync(videoId, "embedded", sts).ConfigureAwait(false);
 
-
-        private async Task<IReadOnlyDictionary<string, string>> GetVideoInfoAsync(string videoId, string sts = "")
-        {
-            IReadOnlyDictionary<string, string> result = null;
-            foreach (var option in new[] { "&el=detailpage", "&el=embedded", "&el=vevo", "" })
+            // Check if video exists by verifying that video ID property is not empty
+            if (parser.ParseId().IsBlank())
             {
-                var x = await GetVideoInfoRawAsync(videoId, option, sts).ConfigureAwait(false);
-                result = UrlEx.SplitQuery(x);
-                if (!result.ContainsKey("errorcode"))
-                    return result;
+                // Get native error code and error reason
+                var errorCode = parser.ParseErrorCode();
+                var errorReason = parser.ParseErrorReason();
+
+                throw new VideoUnavailableException(videoId, errorCode, errorReason);
             }
-            var errorCode = result["errorcode"].ParseInt();
-            var errorReason = result["reason"];
-            throw new VideoUnavailableException(videoId, errorCode, errorReason);
+
+            // If requested with "sts" parameter, it means that the calling code is interested in getting video info with streams.
+            // For that we also need to make sure the video is fully available by checking for errors.
+            if (sts.IsNotBlank() && parser.ParseErrorCode() != 0)
+            {
+                // Retry for "el=detailpage"
+                parser = await GetVideoInfoParserAsync(videoId, "detailpage", sts).ConfigureAwait(false);
+
+                // If there are still errors - throw
+                if (parser.ParseErrorCode() != 0)
+                {
+                    // Get native error code and error reason
+                    var errorCode = parser.ParseErrorCode();
+                    var errorReason = parser.ParseErrorReason();
+
+                    throw new VideoUnavailableException(videoId, errorCode, errorReason);
+                }
+            }
+
+            return parser;
+        }
+
+        private async Task<PlayerSourceParser> GetPlayerSourceParserAsync(string sourceUrl)
+        {
+            var raw = await _httpClient.GetStringAsync(sourceUrl).ConfigureAwait(false);
+            return PlayerSourceParser.Initialize(raw);
+        }
+
+        private async Task<DashManifestParser> GetDashManifestParserAsync(string dashManifestUrl)
+        {
+            var raw = await _httpClient.GetStringAsync(dashManifestUrl).ConfigureAwait(false);
+            return DashManifestParser.Initialize(raw);
         }
 
         private async Task<PlayerContext> GetVideoPlayerContextAsync(string videoId)
@@ -103,82 +120,11 @@ namespace YoutubeExplode
             if (playerSource != null)
                 return playerSource;
 
-            // Get player source code
-            var sourceRaw = await _httpClient.GetStringAsync(sourceUrl).ConfigureAwait(false);
-
-            // Find the name of the function that handles deciphering
-            var entryPoint = Regex.Match(sourceRaw, @"\""signature"",\s?([a-zA-Z0-9\$]+)\(").Groups[1].Value;
-            if (entryPoint.IsBlank())
-                throw new ParseException("Could not find the entry function for signature deciphering.");
-
-            // Find the body of the function
-            var entryPointPattern = @"(?!h\.)" + Regex.Escape(entryPoint) + @"=function\(\w+\)\{(.*?)\}";
-            var entryPointBody = Regex.Match(sourceRaw, entryPointPattern, RegexOptions.Singleline).Groups[1].Value;
-            if (entryPointBody.IsBlank())
-                throw new ParseException("Could not find the signature decipherer function body.");
-            var entryPointLines = entryPointBody.Split(";").ToArray();
-
-            // Identify cipher functions
-            string reverseFuncName = null;
-            string sliceFuncName = null;
-            string charSwapFuncName = null;
-            var operations = new List<ICipherOperation>();
-
-            // Analyze the function body to determine the names of cipher functions
-            foreach (var line in entryPointLines)
-            {
-                // Break when all functions are found
-                if (reverseFuncName.IsNotBlank() && sliceFuncName.IsNotBlank() && charSwapFuncName.IsNotBlank())
-                    break;
-
-                // Get the function called on this line
-                var calledFuncName = Regex.Match(line, @"\w+\.(\w+)\(").Groups[1].Value;
-                if (calledFuncName.IsBlank())
-                    continue;
-
-                // Find cipher function names
-                if (Regex.IsMatch(sourceRaw, $@"{Regex.Escape(calledFuncName)}:\bfunction\b\(\w+\)"))
-                {
-                    reverseFuncName = calledFuncName;
-                }
-                else if (Regex.IsMatch(sourceRaw,
-                    $@"{Regex.Escape(calledFuncName)}:\bfunction\b\([a],b\).(\breturn\b)?.?\w+\."))
-                {
-                    sliceFuncName = calledFuncName;
-                }
-                else if (Regex.IsMatch(sourceRaw,
-                    $@"{Regex.Escape(calledFuncName)}:\bfunction\b\(\w+\,\w\).\bvar\b.\bc=a\b"))
-                {
-                    charSwapFuncName = calledFuncName;
-                }
-            }
-
-            // Analyze the function body again to determine the operation set and order
-            foreach (var line in entryPointLines)
-            {
-                // Get the function called on this line
-                var calledFuncName = Regex.Match(line, @"\w+\.(\w+)\(").Groups[1].Value;
-                if (calledFuncName.IsBlank())
-                    continue;
-
-                // Swap operation
-                if (calledFuncName == charSwapFuncName)
-                {
-                    var index = Regex.Match(line, @"\(\w+,(\d+)\)").Groups[1].Value.ParseInt();
-                    operations.Add(new SwapCipherOperation(index));
-                }
-                // Slice operation
-                else if (calledFuncName == sliceFuncName)
-                {
-                    var index = Regex.Match(line, @"\(\w+,(\d+)\)").Groups[1].Value.ParseInt();
-                    operations.Add(new SliceCipherOperation(index));
-                }
-                // Reverse operation
-                else if (calledFuncName == reverseFuncName)
-                {
-                    operations.Add(new ReverseCipherOperation());
-                }
-            }
+            // Get parser
+            var parser = await GetPlayerSourceParserAsync(sourceUrl).ConfigureAwait(false);
+            
+            // Extract cipher operations
+            var operations = parser.ParseCipherOperations();
 
             return _playerSourceCache[sourceUrl] = new PlayerSource(operations);
         }
@@ -191,32 +137,31 @@ namespace YoutubeExplode
             if (!ValidateVideoId(videoId))
                 throw new ArgumentException($"Invalid YouTube video ID [{videoId}].", nameof(videoId));
 
-            // Get video info
-            var videoInfo = await GetVideoInfoAsync(videoId).ConfigureAwait(false);
+            // Get video info parser
+            var videoInfoParser = await GetVideoInfoParserAsync(videoId).ConfigureAwait(false);
 
-            // Extract values
-            var title = videoInfo["title"];
-            var author = videoInfo["author"];
-            var duration = TimeSpan.FromSeconds(videoInfo["length_seconds"].ParseDouble());
-            var viewCount = videoInfo["view_count"].ParseLong();
-            var keywords = videoInfo["keywords"].Split(",");
+            // Extract info
+            var author = videoInfoParser.ParseAuthor();
+            var title = videoInfoParser.ParseTitle();
+            var duration = videoInfoParser.ParseDuration();
+            var keywords = videoInfoParser.ParseKeywords();
+            var viewCount = videoInfoParser.ParseViewCount();
+            var loudness = videoInfoParser.ParseLoudness();
 
-            // Get video watch page
-            var watchPage = await GetVideoWatchPageAsync(videoId).ConfigureAwait(false);
+            // Get video watch page parser
+            var videoWatchPageParser = await GetVideoWatchPageParserAsync(videoId).ConfigureAwait(false);
 
-            // Extract values
-            var uploadDate = watchPage.QuerySelector("meta[itemprop=\"datePublished\"]").GetAttribute("content")
-                .ParseDateTimeOffset("yyyy-MM-dd");
-            var description = watchPage.QuerySelector("p#eow-description").TextEx();
-            var likeCount = watchPage.QuerySelector("button.like-button-renderer-like-button").Text()
-                .StripNonDigit().ParseLongOrDefault();
-            var dislikeCount = watchPage.QuerySelector("button.like-button-renderer-dislike-button").Text()
-                .StripNonDigit().ParseLongOrDefault();
+            // Extract info
+            var uploadDate = videoWatchPageParser.ParseUploadDate();
+            var description = videoWatchPageParser.ParseDescription();
+            var likeCount = videoWatchPageParser.ParseLikeCount();
+            var dislikeCount = videoWatchPageParser.ParseDislikeCount();
+
             var statistics = new Statistics(viewCount, likeCount, dislikeCount);
-
             var thumbnails = new ThumbnailSet(videoId);
+
             return new Video(videoId, author, uploadDate, title, description, thumbnails, duration, keywords,
-                statistics, videoInfo);
+                statistics, loudness);
         }
 
         /// <inheritdoc />
@@ -227,17 +172,16 @@ namespace YoutubeExplode
             if (!ValidateVideoId(videoId))
                 throw new ArgumentException($"Invalid YouTube video ID [{videoId}].", nameof(videoId));
 
-            // Get video info just to check error code
-            await GetVideoInfoAsync(videoId).ConfigureAwait(false);
+            // Get video info parser just to assert that the video exists
+            await GetVideoInfoParserAsync(videoId).ConfigureAwait(false);
 
-            // Get embed page config
-            var configJson = await GetVideoEmbedPageConfigAsync(videoId).ConfigureAwait(false);
+            // Get parser
+            var parser = await GetVideoEmbedPageParserAsync(videoId).ConfigureAwait(false);
 
-            // Extract values
-            var channelPath = configJson["args"]["channel_path"].Value<string>();
-            var id = channelPath.SubstringAfter("channel/");
-            var title = configJson["args"]["expanded_title"].Value<string>();
-            var logoUrl = configJson["args"]["profile_picture"].Value<string>();
+            // Extract info
+            var id = parser.ParseChannelId();
+            var title = parser.ParseChannelTitle();
+            var logoUrl = parser.ParseChannelLogoUrl();
 
             return new Channel(id, title, logoUrl);
         }
