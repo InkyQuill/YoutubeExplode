@@ -89,8 +89,8 @@ namespace YoutubeExplode.Internal.Parsers
 
         public double ParseLoudness()
         {
-            var loudnessRaw = _root.GetOrDefault("relative_loudness", "1.0");
-            return double.TryParse(loudnessRaw, out var result) ? result : 1.0;
+            var loudnessRaw = _root.GetOrDefault("relative_loudness", "0");
+            return double.TryParse(loudnessRaw, out var result) ? result : 0;
         }
     }
 

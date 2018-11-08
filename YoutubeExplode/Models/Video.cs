@@ -64,7 +64,7 @@ namespace YoutubeExplode.Models
 
         /// <summary />
         public Video(string id, string author, DateTimeOffset uploadDate, string title, string description,
-            ThumbnailSet thumbnails, TimeSpan duration, IReadOnlyList<string> keywords, Statistics statistics, double loudness = 1.0D)
+            ThumbnailSet thumbnails, TimeSpan duration, IReadOnlyList<string> keywords, Statistics statistics, double loudness = 0D)
         {
             Id = id.GuardNotNull(nameof(id));
             Author = author.GuardNotNull(nameof(author));
