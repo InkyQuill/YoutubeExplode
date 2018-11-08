@@ -138,6 +138,7 @@ namespace YoutubeExplode
             var duration = videoInfoParser.ParseDuration();
             var keywords = videoInfoParser.ParseKeywords();
             var viewCount = videoInfoParser.ParseViewCount();
+            var loudness = videoInfoParser.ParseLoudness();
 
             // Get video watch page parser
             var videoWatchPageParser = await GetVideoWatchPageParserAsync(videoId).ConfigureAwait(false);
@@ -152,7 +153,7 @@ namespace YoutubeExplode
             var thumbnails = new ThumbnailSet(videoId);
 
             return new Video(videoId, author, uploadDate, title, description, thumbnails, duration, keywords,
-                statistics, videoInfo);
+                statistics, loudness);
         }
 
         /// <inheritdoc />

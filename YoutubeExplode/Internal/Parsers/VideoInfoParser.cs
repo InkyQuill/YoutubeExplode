@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 
@@ -84,6 +85,12 @@ namespace YoutubeExplode.Internal.Parsers
             var closedCaptionTracksJson = playerResponseJson.SelectToken("$..captionTracks");
 
             return closedCaptionTracksJson.EmptyIfNull().Select(t => new ClosedCaptionTrackInfoParser(t));
+        }
+
+        public double ParseLoudness()
+        {
+            var loudnessRaw = _root.GetOrDefault("relative_loudness", "1.0");
+            return double.TryParse(loudnessRaw, out var result) ? result : 1.0;
         }
     }
 
