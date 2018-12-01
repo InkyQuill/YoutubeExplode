@@ -243,3 +243,11 @@ ModelManifest.xml
 
 # FAKE - F# Make
 .fake/
+
+.idea/
+.idea/.idea.YoutubeExplode/riderModule.iml
+.idea/.idea.YoutubeExplode/.idea/contentModel.xml
+.idea/.idea.YoutubeExplode/.idea/indexLayout.xml
+.idea/.idea.YoutubeExplode/.idea/modules.xml
+.idea/.idea.YoutubeExplode/.idea/vcs.xml
+.idea/.idea.YoutubeExplode/.idea/workspace.xml
