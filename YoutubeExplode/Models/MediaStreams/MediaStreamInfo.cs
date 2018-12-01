@@ -29,12 +29,14 @@ namespace YoutubeExplode.Models.MediaStreams
         /// </summary>
         public long Size { get; }
 
-        /// <summary />
-        protected MediaStreamInfo(int itag, string url, long size)
+        /// <summary>
+        /// Initializes an instance of <see cref="MediaStreamInfo"/>.
+        /// </summary>
+        protected MediaStreamInfo(int itag, string url, Container container, long size)
         {
             Itag = itag;
             Url = url.GuardNotNull(nameof(url));
-            Container = ItagHelper.GetContainer(itag);
+            Container = container;
             Size = size.GuardNotNegative(nameof(size));
         }
 

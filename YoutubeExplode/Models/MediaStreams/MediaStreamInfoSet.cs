@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using JetBrains.Annotations;
 using YoutubeExplode.Internal;
 
@@ -34,16 +35,25 @@ namespace YoutubeExplode.Models.MediaStreams
         [CanBeNull]
         public string HlsLiveStreamUrl { get; }
 
-        /// <summary />
+        /// <summary>
+        /// Expiry date for this information.
+        /// </summary>
+        public DateTimeOffset ValidUntil { get; }
+
+        /// <summary>
+        /// Initializes an instance of <see cref="MediaStreamInfoSet"/>.
+        /// </summary>
         public MediaStreamInfoSet(IReadOnlyList<MuxedStreamInfo> muxed,
             IReadOnlyList<AudioStreamInfo> audio,
             IReadOnlyList<VideoStreamInfo> video,
-            string hlsLiveStreamUrl)
+            string hlsLiveStreamUrl, 
+            DateTimeOffset validUntil)
         {
             Muxed = muxed.GuardNotNull(nameof(muxed));
             Audio = audio.GuardNotNull(nameof(audio));
             Video = video.GuardNotNull(nameof(video));
             HlsLiveStreamUrl = hlsLiveStreamUrl;
+            ValidUntil = validUntil;
         }
     }
 }

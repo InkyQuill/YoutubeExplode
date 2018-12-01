@@ -150,12 +150,13 @@ namespace DemoWpf.ViewModels
             var fileExt = info.Container.GetFileExtension();
             var defaultFileName = $"{Video.Title}.{fileExt}"
                 .Replace(Path.GetInvalidFileNameChars(), '_');
+
             var sfd = new SaveFileDialog
             {
-                AddExtension = true,
-                DefaultExt = fileExt,
                 FileName = defaultFileName,
-                Filter = $"{info.Container} Files|*.{fileExt}|All Files|*.*"
+                Filter = $"{fileExt} files|*.{fileExt}|All Files|*.*",
+                AddExtension = true,
+                DefaultExt = fileExt
             };
 
             // Select file path
@@ -178,15 +179,15 @@ namespace DemoWpf.ViewModels
         private async void DownloadClosedCaptionTrack(ClosedCaptionTrackInfo info)
         {
             // Create dialog
-            var fileExt = $"{Video.Title}.{info.Language.Name}.srt"
+            var defaultFileName = $"{Video.Title}.{info.Language.Name}.srt"
                 .Replace(Path.GetInvalidFileNameChars(), '_');
-            var filter = "SRT Files|*.srt|All Files|*.*";
+
             var sfd = new SaveFileDialog
             {
+                FileName = defaultFileName,
+                Filter = "SRT Files|*.srt|All Files|*.*",
                 AddExtension = true,
-                DefaultExt = "srt",
-                FileName = fileExt,
-                Filter = filter
+                DefaultExt = "srt"
             };
 
             // Select file path

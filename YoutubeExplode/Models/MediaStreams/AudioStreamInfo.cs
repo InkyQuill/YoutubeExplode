@@ -8,7 +8,7 @@ namespace YoutubeExplode.Models.MediaStreams
     public class AudioStreamInfo : MediaStreamInfo
     {
         /// <summary>
-        /// Bitrate (bit/s) of the associated stream.
+        /// Bitrate (bits/s) of the associated stream.
         /// </summary>
         public long Bitrate { get; }
 
@@ -17,12 +17,18 @@ namespace YoutubeExplode.Models.MediaStreams
         /// </summary>
         public AudioEncoding AudioEncoding { get; }
 
-        /// <summary />
-        public AudioStreamInfo(int itag, string url, long size, long bitrate)
-            : base(itag, url, size)
+        /// <summary>
+        /// Initializes an instance of <see cref="AudioStreamInfo"/>.
+        /// </summary>
+        public AudioStreamInfo(int itag, string url, Container container, long size, long bitrate,
+            AudioEncoding audioEncoding)
+            : base(itag, url, container, size)
         {
             Bitrate = bitrate.GuardNotNegative(nameof(bitrate));
-            AudioEncoding = ItagHelper.GetAudioEncoding(itag);
+            AudioEncoding = audioEncoding;
         }
+
+        /// <inheritdoc />
+        public override string ToString() => $"{Itag} ({Container}) [audio]";
     }
 }

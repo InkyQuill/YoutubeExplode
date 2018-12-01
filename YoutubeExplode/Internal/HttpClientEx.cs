@@ -24,7 +24,7 @@ namespace YoutubeExplode.Internal
 
             // Configure client
             var client = new HttpClient(handler, true);
-            client.DefaultRequestHeaders.Add("User-Agent", "YoutubeExplode (github.com/Tyrrrz/YoutubeExplode)");
+            //client.DefaultRequestHeaders.Add("User-Agent", "YoutubeExplode (github.com/Tyrrrz/YoutubeExplode)");
 
             return _singleton = client;
         }
@@ -78,7 +78,7 @@ namespace YoutubeExplode.Internal
             }
         }
 
-        public static SegmentedHttpStream GetSegmentedStream(this HttpClient httpClient, string url, long length,
+        public static SegmentedHttpStream CreateSegmentedStream(this HttpClient httpClient, string url, long length,
             long segmentSize)
         {
             return new SegmentedHttpStream(httpClient, url, length, segmentSize);

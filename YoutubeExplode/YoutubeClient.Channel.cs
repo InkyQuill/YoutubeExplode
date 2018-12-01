@@ -2,25 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using YoutubeExplode.Exceptions;
 using YoutubeExplode.Internal;
-using YoutubeExplode.Internal.Parsers;
 using YoutubeExplode.Models;
 
 namespace YoutubeExplode
 {
     public partial class YoutubeClient
     {
-        private async Task<UserPageParser> GetUserPageParserAsync(string username)
-        {
-            username = username.UrlEncode();
-
-            var url = $"https://www.youtube.com/user/{username}";
-            var raw = await _httpClient.GetStringAsync(url).ConfigureAwait(false);
-
-            return UserPageParser.Initialize(raw);
-        }
-
         /// <inheritdoc />
         public async Task<string> GetChannelIdAsync(string username)
         {
@@ -30,14 +18,10 @@ namespace YoutubeExplode
                 throw new ArgumentException($"Invalid YouTube username [{username}].");
 
             // Get parser
-            var parser = await GetUserPageParserAsync(username).ConfigureAwait(false);
+            var parser = await GetChannelPageParserByUsernameAsync(username).ConfigureAwait(false);
 
-            // Extract info
+            // Parse info
             var channelId = parser.ParseChannelId();
-
-            // Validate channel ID to make sure it was extracted successfully
-            if (!ValidateChannelId(channelId))
-                throw new ParseException("Could not parse channel ID.");
 
             return channelId;
         }
@@ -58,7 +42,7 @@ namespace YoutubeExplode
             // Get first video
             var video = uploads.FirstOrDefault();
             if (video == null)
-                throw new ParseException("Channel does not have any videos.");
+                throw new InvalidOperationException("Channel contains no videos.");
 
             // Get video channel
             var channel = await GetVideoAuthorChannelAsync(video.Id).ConfigureAwait(false);
