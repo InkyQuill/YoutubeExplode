@@ -59,12 +59,7 @@ namespace YoutubeExplode.Internal.Parsers
             return TimeSpan.FromSeconds(expiresInSeconds);
         }
 
-
-               public double ParseLoudness()
-        {
-            var loudnessRaw = _root.GetOrDefault("relative_loudness", "0");
-            return double.TryParse(loudnessRaw, out var result) ? result : 0;
-        }
+        public double ParseLoudness() => _root.SelectToken("playerConfig.audioConfig.loudnessDb").Value<double>();
 
         public IEnumerable<StreamInfoParser> GetMuxedStreamInfos()
         {
