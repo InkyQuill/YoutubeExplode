@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>4.6</Version>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>net45;netstandard2.0</TargetFrameworks>
+    <Version>4.6.4</Version>
     <Company>Tyrrrz</Company>
     <Authors>$(Company)</Authors>
     <Copyright>Copyright (C) 2016-2018 Alexey Golub</Copyright>
@@ -24,8 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-      <PackageReference Include="AngleSharp" Version="0.9.10"/>
-      <PackageReference Include="Newtonsoft.Json" Version="11.0.2"/>
+    <PackageReference Include="AngleSharp" Version="[0.9.11]" />
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.1" />
   </ItemGroup>
 
 </Project>
