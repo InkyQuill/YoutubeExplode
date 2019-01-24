@@ -51,7 +51,7 @@ namespace YoutubeExplode
 
         private async Task<PlayerResponseParser> GetPlayerResponseParserAsync(string videoId, bool ensureIsPlayable = false)
         {
-            // Get player response parser via video info
+            // Get player response parser via video info (this works for most videos)
             var videoInfoParser = await GetVideoInfoParserAsync(videoId).ConfigureAwait(false);
             var playerResponseParser = videoInfoParser.GetPlayerResponse();
 
@@ -59,21 +59,36 @@ namespace YoutubeExplode
             if (!playerResponseParser.ParseIsAvailable())
             {
                 var errorReason = playerResponseParser.ParseErrorReason();
-                throw new VideoUnavailableException(videoId, $"Video [{videoId}] is unavailable. {errorReason}");
+                throw new VideoUnavailableException(videoId,
+                    $"Video [{videoId}] is unavailable. (Reason: {errorReason})");
             }
 
-            // If requested to ensure playability but the video is not playable - try again
+            // If asked to ensure playability, but the video is not playable - retry
             if (ensureIsPlayable && !playerResponseParser.ParseIsPlayable())
             {
-                // Get player response parser via watch page
+                // Get player response parser via watch page (this works for some other videos)
                 var watchPageParser = await GetVideoWatchPageParserAsync(videoId).ConfigureAwait(false);
-                playerResponseParser = watchPageParser.GetPlayerResponse();
+                var watchPageConfigParser = watchPageParser.GetConfig();
+                playerResponseParser = watchPageConfigParser.GetPlayerResponse();
 
                 // If the video is still not playable - throw exception
                 if (!playerResponseParser.ParseIsPlayable())
                 {
                     var errorReason = playerResponseParser.ParseErrorReason();
-                    throw new VideoUnplayableException(videoId, $"Video [{videoId}] is unplayable. {errorReason}");
+
+                    // If the video is not playable because it requires purchase - throw specific exception
+                    var previewVideoId = watchPageConfigParser.ParsePreviewVideoId();
+                    if (previewVideoId.IsNotBlank())
+                    {                        
+                        throw new VideoRequiresPurchaseException(previewVideoId, videoId,
+                            $"Video [{videoId}] is unplayable because it requires purchase. (Reason: {errorReason})");
+                    }
+                    // For other reasons - throw a generic exception
+                    else
+                    {
+                        throw new VideoUnplayableException(videoId,
+                            $"Video [{videoId}] is unplayable. (Reason: {errorReason})");
+                    }
                 }
             }
 
@@ -98,7 +113,7 @@ namespace YoutubeExplode
 
             // Retry up to 5 times because sometimes the response has random errors
             for (var retry = 0; retry < 5; retry++)
-            {                
+            {
                 var raw = await _httpClient.GetStringAsync(url).ConfigureAwait(false);
                 var parser = ChannelPageParser.Initialize(raw);
 
@@ -122,7 +137,7 @@ namespace YoutubeExplode
 
             // Retry up to 5 times because sometimes the response has random errors
             for (var retry = 0; retry < 5; retry++)
-            {                
+            {
                 var raw = await _httpClient.GetStringAsync(url).ConfigureAwait(false);
                 var parser = ChannelPageParser.Initialize(raw);
 

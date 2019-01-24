@@ -44,7 +44,7 @@ namespace YoutubeExplode.Tests
         {
             var client = new YoutubeClient();
 
-            Assert.ThrowsAsync<VideoUnavailableException>(() => client.GetVideoAsync(videoId));
+            Assert.CatchAsync<VideoUnavailableException>(() => client.GetVideoAsync(videoId));
         }
 
         [Test]
@@ -64,7 +64,7 @@ namespace YoutubeExplode.Tests
         {
             var client = new YoutubeClient();
 
-            Assert.ThrowsAsync<VideoUnavailableException>(() => client.GetVideoAuthorChannelAsync(videoId));
+            Assert.CatchAsync<VideoUnavailableException>(() => client.GetVideoAuthorChannelAsync(videoId));
         }
 
         [Test]
@@ -84,7 +84,7 @@ namespace YoutubeExplode.Tests
         {
             var client = new YoutubeClient();
 
-            Assert.ThrowsAsync<VideoUnavailableException>(() => client.GetVideoMediaStreamInfosAsync(videoId));
+            Assert.CatchAsync<VideoUnavailableException>(() => client.GetVideoMediaStreamInfosAsync(videoId));
         }
 
         [Test]
@@ -93,7 +93,7 @@ namespace YoutubeExplode.Tests
         {
             var client = new YoutubeClient();
 
-            Assert.ThrowsAsync<VideoUnplayableException>(() => client.GetVideoMediaStreamInfosAsync(videoId));
+            Assert.CatchAsync<VideoUnplayableException>(() => client.GetVideoMediaStreamInfosAsync(videoId));
         }
 
         [Test]
@@ -113,7 +113,7 @@ namespace YoutubeExplode.Tests
         {
             var client = new YoutubeClient();
 
-            Assert.ThrowsAsync<VideoUnavailableException>(() => client.GetVideoClosedCaptionTrackInfosAsync(videoId));
+            Assert.CatchAsync<VideoUnavailableException>(() => client.GetVideoClosedCaptionTrackInfosAsync(videoId));
         }
 
         [Test]
@@ -123,8 +123,11 @@ namespace YoutubeExplode.Tests
             var client = new YoutubeClient();
 
             var mediaStreamInfoSet = await client.GetVideoMediaStreamInfosAsync(videoId);
+            var mediaStreamInfos = mediaStreamInfoSet.GetAll().ToArray();
 
-            foreach (var streamInfo in mediaStreamInfoSet.GetAll())
+            Assert.That(mediaStreamInfos, Is.Not.Empty);
+
+            foreach (var streamInfo in mediaStreamInfos)
             {
                 using (var stream = await client.GetMediaStreamAsync(streamInfo))
                 {
@@ -163,10 +166,14 @@ namespace YoutubeExplode.Tests
 
             var closedCaptionTrackInfos = await client.GetVideoClosedCaptionTrackInfosAsync(videoId);
 
-            var trackInfo = closedCaptionTrackInfos.First();
-            var track = await client.GetClosedCaptionTrackAsync(trackInfo);
+            Assert.That(closedCaptionTrackInfos, Is.Not.Empty);
 
-            Assert.That(track, Is.Not.Null);
+            foreach (var trackInfo in closedCaptionTrackInfos)
+            {
+                var track = await client.GetClosedCaptionTrackAsync(trackInfo);
+
+                Assert.That(track, Is.Not.Null);
+            }
         }
 
         [Test]

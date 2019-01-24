@@ -70,19 +70,38 @@ namespace YoutubeExplode.Internal.Parsers
         public long ParseDislikeCount() => _root.QuerySelector("button.like-button-renderer-dislike-button")?.Text()
             .StripNonDigit().ParseLongOrDefault() ?? 0;
 
-        public PlayerResponseParser GetPlayerResponse()
+        public ConfigParser GetConfig()
         {
-            // Parse config
             var configRaw = Regex.Match(_root.Source.Text,
                     @"ytplayer\.config = (?<Json>\{[^\{\}]*(((?<Open>\{)[^\{\}]*)+((?<Close-Open>\})[^\{\}]*)+)*(?(Open)(?!))\})")
                 .Groups["Json"].Value;
             var configJson = JToken.Parse(configRaw);
 
-            // Extract player response
-            var playerResponseRaw = configJson.SelectToken("args.player_response").Value<string>(); // it's json encoded as string inside json
-            var playerResponseJson = JToken.Parse(playerResponseRaw);
+            return new ConfigParser(configJson);
+        }
+    }
 
-            return new PlayerResponseParser(playerResponseJson);
+    internal partial class VideoWatchPageParser
+    {
+        public class ConfigParser
+        {
+            private readonly JToken _root;
+
+            public ConfigParser(JToken root)
+            {
+                _root = root;
+            }
+
+            public string ParsePreviewVideoId() => _root.SelectToken("args.ypc_vid")?.Value<string>();
+
+            public PlayerResponseParser GetPlayerResponse()
+            {
+                // Player response is a json, which is stored as a string, inside json
+                var playerResponseRaw = _root.SelectToken("args.player_response").Value<string>();
+                var playerResponseJson = JToken.Parse(playerResponseRaw);
+
+                return new PlayerResponseParser(playerResponseJson);
+            }
         }
     }
 
