@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -52,25 +53,24 @@ namespace YoutubeExplode
         private async Task<string> GetVideoInfoRawAsync(string videoId, string el = "", string sts = "")
         {
             var eurl = $"https://youtube.googleapis.com/v/{videoId}".UrlEncode(); // this makes all videos embeddable
-            var url = $"https://www.youtube.com/get_video_info?video_id={videoId}&el={el}&sts={sts}&eurl={eurl}&hl=en";
+            var url = $"https://www.youtube.com/get_video_info?video_id={videoId}{el}&sts={sts}&eurl={eurl}&hl=en";
             return await _httpClient.GetStringAsync(url).ConfigureAwait(false);
         }
 
+
         private async Task<IReadOnlyDictionary<string, string>> GetVideoInfoAsync(string videoId, string sts = "")
         {
-            var raw = await GetVideoInfoRawAsync(videoId, "embedded", sts).ConfigureAwait(false);
-            var videoInfo = UrlEx.SplitQuery(raw);
-
-            // Check if there is an error
-            if (videoInfo.ContainsKey("errorcode"))
+            IReadOnlyDictionary<string, string> result = null;
+            foreach (var option in new[] { "&el=detailpage", "&el=embedded", "&el=vevo", "" })
             {
-                var errorCode = videoInfo["errorcode"].ParseInt();
-                var errorReason = videoInfo["reason"];
-
-                throw new VideoUnavailableException(videoId, errorCode, errorReason);
+                var x = await GetVideoInfoRawAsync(videoId, option, sts).ConfigureAwait(false);
+                result = UrlEx.SplitQuery(x);
+                if (!result.ContainsKey("errorcode"))
+                    return result;
             }
-
-            return videoInfo;
+            var errorCode = result["errorcode"].ParseInt();
+            var errorReason = result["reason"];
+            throw new VideoUnavailableException(videoId, errorCode, errorReason);
         }
 
         private async Task<PlayerContext> GetVideoPlayerContextAsync(string videoId)
@@ -216,7 +216,7 @@ namespace YoutubeExplode
 
             var thumbnails = new ThumbnailSet(videoId);
             return new Video(videoId, author, uploadDate, title, description, thumbnails, duration, keywords,
-                statistics);
+                statistics, videoInfo);
         }
 
         /// <inheritdoc />
