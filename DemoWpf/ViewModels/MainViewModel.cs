@@ -112,7 +112,7 @@ namespace DemoWpf.ViewModels
 
             // Commands
             PullDataCommand = new RelayCommand(PullData,
-                () => !IsBusy && Query.IsNotBlank());
+                () => !IsBusy && !Query.IsNullOrWhiteSpace());
             DownloadMediaStreamCommand = new RelayCommand<MediaStreamInfo>(DownloadMediaStream,
                 _ => !IsBusy);
             DownloadClosedCaptionTrackCommand = new RelayCommand<ClosedCaptionTrackInfo>(
@@ -124,6 +124,14 @@ namespace DemoWpf.ViewModels
             return YoutubeClient.TryParseVideoId(input, out var videoId)
                 ? videoId
                 : input;
+        }
+
+        private static string SanitizeFileName(string fileName)
+        {
+            foreach (var invalidChar in Path.GetInvalidFileNameChars())
+                fileName = fileName.Replace(invalidChar, '_');
+
+            return fileName;
         }
 
         private static string PromptSaveFilePath(string defaultFileName, string filter)
@@ -166,7 +174,7 @@ namespace DemoWpf.ViewModels
                 // Exit busy state
                 IsBusy = false;
                 IsProgressIndeterminate = false;
-            }            
+            }
         }
 
         private async void DownloadMediaStream(MediaStreamInfo info)
@@ -179,11 +187,11 @@ namespace DemoWpf.ViewModels
 
                 // Generate default file name
                 var fileExt = info.Container.GetFileExtension();
-                var defaultFileName = $"{Video.Title}.{fileExt}".Replace(Path.GetInvalidFileNameChars(), '_');
+                var defaultFileName = SanitizeFileName($"{Video.Title}.{fileExt}");
 
                 // Prompt file path
                 var filePath = PromptSaveFilePath(defaultFileName, $"{fileExt} files|*.{fileExt}|All Files|*.*");
-                if (filePath.IsBlank())
+                if (filePath.IsNullOrWhiteSpace())
                     return;
 
                 // Set up progress handler
@@ -209,12 +217,11 @@ namespace DemoWpf.ViewModels
                 Progress = 0;
 
                 // Generate default file name
-                var defaultFileName =
-                    $"{Video.Title}.{info.Language.Name}.srt".Replace(Path.GetInvalidFileNameChars(), '_');
+                var defaultFileName = SanitizeFileName($"{Video.Title}.{info.Language.Name}.srt");
 
                 // Prompt file path
                 var filePath = PromptSaveFilePath(defaultFileName, "SRT Files|*.srt|All Files|*.*");
-                if (filePath.IsBlank())
+                if (filePath.IsNullOrWhiteSpace())
                     return;
 
                 // Set up progress handler

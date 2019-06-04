@@ -1,3 +1,28 @@
+### v4.7.1 (17-May-2019)
+
+- Improved exception messages for cases when a video is blocked in user's country or is age-restricted and unembeddable.
+
+### v4.7 (12-May-2019)
+
+- Fixed an issue where YoutubeExplode always failed to extract media streams due to recent YouTube changes.
+
+### v4.6.8 (30-Mar-2019)
+
+- Improved performance in `GetVideoAsync` by optimizing description parser.
+
+### v4.6.7 (16-Mar-2019)
+
+- Fixed some more inconsistencies with how links in video descriptions are rendered.
+
+### v4.6.6 (24-Feb-2019)
+
+- Fixed an issue where `JsonReaderException` was thrown when downloading videos that were blocked on copyright grounds.
+
+### v4.6.5 (16-Feb-2019)
+
+- Fixed an issue where parser methods for channel ID and username failed if the URL contained query parameters.
+- Fixed some inconsistencies with how links in video descriptions are rendered.
+
 ### v4.6.4 (16-Jan-2019)
 
 - Pinned AngleSharp dependency to version 0.9.11 because newer versions contain breaking changes that are currently incompatible with YoutubeExplode.

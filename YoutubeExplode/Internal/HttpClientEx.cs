@@ -38,8 +38,7 @@ namespace YoutubeExplode.Internal
         public static async Task<string> GetStringAsync(this HttpClient client, string requestUri,
             bool ensureSuccess = true)
         {
-            using (var response = await client.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead)
-                .ConfigureAwait(false))
+            using (var response = await client.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false))
             {
                 if (ensureSuccess)
                     response.EnsureSuccessStatusCode();
@@ -56,8 +55,7 @@ namespace YoutubeExplode.Internal
 
             using (request)
             {
-                var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead)
-                    .ConfigureAwait(false);
+                var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
 
                 if (ensureSuccess)
                     response.EnsureSuccessStatusCode();
@@ -78,10 +76,7 @@ namespace YoutubeExplode.Internal
             }
         }
 
-        public static SegmentedHttpStream CreateSegmentedStream(this HttpClient httpClient, string url, long length,
-            long segmentSize)
-        {
-            return new SegmentedHttpStream(httpClient, url, length, segmentSize);
-        }
+        public static SegmentedHttpStream CreateSegmentedStream(this HttpClient httpClient, string url, long length, long segmentSize) =>
+            new SegmentedHttpStream(httpClient, url, length, segmentSize);
     }
 }

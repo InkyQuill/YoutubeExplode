@@ -16,7 +16,7 @@ namespace YoutubeExplode
             info.GuardNotNull(nameof(info));
 
             // Determine if stream is rate-limited
-            var isRateLimited = !Regex.IsMatch(info.Url, @"ratebypass[=/]yes");
+            var isRateLimited = !Regex.IsMatch(info.Url, "ratebypass[=/]yes");
 
             // Determine segment size
             var segmentSize = isRateLimited
@@ -32,7 +32,7 @@ namespace YoutubeExplode
 
         /// <inheritdoc />
         public async Task DownloadMediaStreamAsync(MediaStreamInfo info, Stream output,
-            IProgress<double> progress = null, CancellationToken cancellationToken = default(CancellationToken))
+            IProgress<double> progress = null, CancellationToken cancellationToken = default)
         {
             info.GuardNotNull(nameof(info));
             output.GuardNotNull(nameof(output));
@@ -41,11 +41,11 @@ namespace YoutubeExplode
                 await input.CopyToAsync(output, progress, cancellationToken).ConfigureAwait(false);
         }
 
-#if NETSTANDARD2_0 || NET45 || NETCOREAPP1_0
+#if NETSTANDARD2_0 || NET45
 
         /// <inheritdoc />
         public async Task DownloadMediaStreamAsync(MediaStreamInfo info, string filePath,
-            IProgress<double> progress = null, CancellationToken cancellationToken = default(CancellationToken))
+            IProgress<double> progress = null, CancellationToken cancellationToken = default)
         {
             filePath.GuardNotNull(nameof(filePath));
 

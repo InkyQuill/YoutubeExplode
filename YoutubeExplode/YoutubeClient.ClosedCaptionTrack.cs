@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using YoutubeExplode.Internal;
 using YoutubeExplode.Models.ClosedCaptions;
 
@@ -11,38 +12,45 @@ namespace YoutubeExplode
 {
     public partial class YoutubeClient
     {
+        private async Task<XElement> GetClosedCaptionTrackXmlAsync(string url)
+        {
+            var raw = await _httpClient.GetStringAsync(url).ConfigureAwait(false);
+            return XElement.Parse(raw, LoadOptions.PreserveWhitespace).StripNamespaces();
+        }
+
         /// <inheritdoc />
         public async Task<ClosedCaptionTrack> GetClosedCaptionTrackAsync(ClosedCaptionTrackInfo info)
         {
             info.GuardNotNull(nameof(info));
 
-            // Get parser
-            var parser = await GetClosedCaptionTrackAjaxParserAsync(info.Url).ConfigureAwait(false);
+            // Get closed caption track XML
+            var trackXml = await GetClosedCaptionTrackXmlAsync(info.Url).ConfigureAwait(false);
 
-            // Parse captions
-            var closedCaptions = new List<ClosedCaption>();
-            foreach (var closedCaptionParser in parser.GetClosedCaptions())
+            // Get closed captions
+            var captions = new List<ClosedCaption>();
+            foreach (var captionXml in trackXml.Descendants("p"))
             {
-                // Parse info
-                var text = closedCaptionParser.ParseText();
+                // Extract text
+                var text = (string) captionXml;
 
-                // Skip caption tracks without text
-                if (text.IsBlank())
+                // Skip captions with no text
+                if (text.IsNullOrWhiteSpace())
                     continue;
 
-                var offset = closedCaptionParser.ParseOffset();
-                var duration = closedCaptionParser.ParseDuration();
+                // Extract timing info
+                var offset = TimeSpan.FromMilliseconds((double) captionXml.Attribute("t"));
+                var duration = TimeSpan.FromMilliseconds((double) captionXml.Attribute("d"));
 
-                var caption = new ClosedCaption(text, offset, duration);
-                closedCaptions.Add(caption);
+                // Add to list
+                captions.Add(new ClosedCaption(text, offset, duration));
             }
 
-            return new ClosedCaptionTrack(info, closedCaptions);
+            return new ClosedCaptionTrack(info, captions);
         }
 
         /// <inheritdoc />
         public async Task DownloadClosedCaptionTrackAsync(ClosedCaptionTrackInfo info, Stream output,
-            IProgress<double> progress = null, CancellationToken cancellationToken = default(CancellationToken))
+            IProgress<double> progress = null, CancellationToken cancellationToken = default)
         {
             info.GuardNotNull(nameof(info));
             output.GuardNotNull(nameof(output));
@@ -82,11 +90,11 @@ namespace YoutubeExplode
             }
         }
 
-#if NETSTANDARD2_0 || NET45 || NETCOREAPP1_0
+#if NETSTANDARD2_0 || NET45
 
         /// <inheritdoc />
         public async Task DownloadClosedCaptionTrackAsync(ClosedCaptionTrackInfo info, string filePath,
-            IProgress<double> progress = null, CancellationToken cancellationToken = default(CancellationToken))
+            IProgress<double> progress = null, CancellationToken cancellationToken = default)
         {
             filePath.GuardNotNull(nameof(filePath));
 
