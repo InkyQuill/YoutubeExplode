@@ -298,6 +298,7 @@ namespace YoutubeExplode
             var videoKeywords = playerResponseJson.SelectToken("videoDetails.keywords").EmptyIfNull().Values<string>().ToArray();
             var videoDescription = playerResponseJson.SelectToken("videoDetails.shortDescription").Value<string>();
             var videoViewCount = playerResponseJson.SelectToken("videoDetails.viewCount")?.Value<long>() ?? 0; // some videos have no views
+            var videoLoudness = playerResponseJson.SelectToken("playerConfig.audioConfig.loudnessDb").Value<double>();
 
             // Get video watch page HTML
             var videoWatchPageHtml = await GetVideoWatchPageHtmlAsync(videoId).ConfigureAwait(false);
@@ -322,8 +323,8 @@ namespace YoutubeExplode
             var statistics = new Statistics(videoViewCount, videoLikeCount, videoDislikeCount);
             var thumbnails = new ThumbnailSet(videoId);
 
-            return new Video(videoId, videoAuthor, videoUploadDate, videoTitle, videoDescription,
-                thumbnails, videoDuration, videoKeywords, statistics);
+            return new Video(videoId, author, uploadDate, title, description, thumbnails, duration, keywords,
+                statistics, videoLoudness);
         }
 
         /// <inheritdoc />
@@ -428,6 +429,7 @@ namespace YoutubeExplode
                 // Add to list
                 muxedStreamInfoMap[itag] = new MuxedStreamInfo(itag, url, container, contentLength, audioEncoding, videoEncoding,
                     videoQualityLabel, videoQuality, resolution);
+                muxedStreamInfoMap[itag] = streamInfo;
             }
 
             // Get adaptive stream infos
@@ -504,6 +506,7 @@ namespace YoutubeExplode
                     // Add to list
                     videoStreamInfoMap[itag] = new VideoStreamInfo(itag, url, container, contentLength, bitrate, videoEncoding,
                         videoQualityLabel, videoQuality, resolution, framerate);
+                    videoStreamInfoMap[itag] = streamInfo;
                 }
             }
 
