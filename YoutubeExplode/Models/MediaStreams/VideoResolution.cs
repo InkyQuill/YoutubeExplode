@@ -6,7 +6,7 @@ namespace YoutubeExplode.Models.MediaStreams
     /// <summary>
     /// Width and height of a video.
     /// </summary>
-    public partial struct VideoResolution : IEquatable<VideoResolution>
+    public readonly partial struct VideoResolution : IEquatable<VideoResolution>
     {
         /// <summary>
         /// Viewport width.
@@ -18,7 +18,9 @@ namespace YoutubeExplode.Models.MediaStreams
         /// </summary>
         public int Height { get; }
 
-        /// <summary />
+        /// <summary>
+        /// Initializes an instance of <see cref="VideoResolution"/>.
+        /// </summary>
         public VideoResolution(int width, int height)
         {
             Width = width.GuardNotNegative(nameof(width));

@@ -12,7 +12,7 @@ using YoutubeExplode.Models.MediaStreams;
 
 namespace DemoWpf.ViewModels
 {
-    public class MainViewModel : ViewModelBase, IMainViewModel
+    public class MainViewModel : ViewModelBase
     {
         private readonly YoutubeClient _client;
 
@@ -31,7 +31,7 @@ namespace DemoWpf.ViewModels
             private set
             {
                 Set(ref _isBusy, value);
-                GetDataCommand.RaiseCanExecuteChanged();
+                PullDataCommand.RaiseCanExecuteChanged();
                 DownloadMediaStreamCommand.RaiseCanExecuteChanged();
             }
         }
@@ -42,7 +42,7 @@ namespace DemoWpf.ViewModels
             set
             {
                 Set(ref _query, value);
-                GetDataCommand.RaiseCanExecuteChanged();
+                PullDataCommand.RaiseCanExecuteChanged();
             }
         }
 
@@ -102,7 +102,7 @@ namespace DemoWpf.ViewModels
         }
 
         // Commands
-        public RelayCommand GetDataCommand { get; }
+        public RelayCommand PullDataCommand { get; }
         public RelayCommand<MediaStreamInfo> DownloadMediaStreamCommand { get; }
         public RelayCommand<ClosedCaptionTrackInfo> DownloadClosedCaptionTrackCommand { get; }
 
@@ -111,99 +111,131 @@ namespace DemoWpf.ViewModels
             _client = new YoutubeClient();
 
             // Commands
-            GetDataCommand = new RelayCommand(GetData,
-                () => !IsBusy && Query.IsNotBlank());
+            PullDataCommand = new RelayCommand(PullData,
+                () => !IsBusy && !Query.IsNullOrWhiteSpace());
             DownloadMediaStreamCommand = new RelayCommand<MediaStreamInfo>(DownloadMediaStream,
                 _ => !IsBusy);
             DownloadClosedCaptionTrackCommand = new RelayCommand<ClosedCaptionTrackInfo>(
                 DownloadClosedCaptionTrack, _ => !IsBusy);
         }
 
-        private async void GetData()
+        private static string NormalizeVideoId(string input)
         {
-            IsBusy = true;
-            IsProgressIndeterminate = true;
+            return YoutubeClient.TryParseVideoId(input, out var videoId)
+                ? videoId
+                : input;
+        }
 
-            // Reset data
-            Video = null;
-            Channel = null;
-            MediaStreamInfos = null;
-            ClosedCaptionTrackInfos = null;
+        private static string SanitizeFileName(string fileName)
+        {
+            foreach (var invalidChar in Path.GetInvalidFileNameChars())
+                fileName = fileName.Replace(invalidChar, '_');
 
-            // Parse URL if necessary
-            if (!YoutubeClient.TryParseVideoId(Query, out var videoId))
-                videoId = Query;
+            return fileName;
+        }
 
-            // Get data
-            Video = await _client.GetVideoAsync(videoId);
-            Channel = await _client.GetVideoAuthorChannelAsync(videoId);
-            MediaStreamInfos = await _client.GetVideoMediaStreamInfosAsync(videoId);
-            ClosedCaptionTrackInfos = await _client.GetVideoClosedCaptionTrackInfosAsync(videoId);
+        private static string PromptSaveFilePath(string defaultFileName, string filter)
+        {
+            var dialog = new SaveFileDialog
+            {
+                FileName = defaultFileName,
+                Filter = filter,
+                AddExtension = true,
+                DefaultExt = Path.GetExtension(defaultFileName) ?? ""
+            };
+            return dialog.ShowDialog() == true ? dialog.FileName : null;
+        }
 
-            IsBusy = false;
-            IsProgressIndeterminate = false;
+        private async void PullData()
+        {
+            try
+            {
+                // Enter busy state
+                IsBusy = true;
+                IsProgressIndeterminate = true;
+
+                // Reset data
+                Video = null;
+                Channel = null;
+                MediaStreamInfos = null;
+                ClosedCaptionTrackInfos = null;
+
+                // Normalize video id
+                var videoId = NormalizeVideoId(Query);
+
+                // Get data
+                Video = await _client.GetVideoAsync(videoId);
+                Channel = await _client.GetVideoAuthorChannelAsync(videoId);
+                MediaStreamInfos = await _client.GetVideoMediaStreamInfosAsync(videoId);
+                ClosedCaptionTrackInfos = await _client.GetVideoClosedCaptionTrackInfosAsync(videoId);
+            }
+            finally
+            {
+                // Exit busy state
+                IsBusy = false;
+                IsProgressIndeterminate = false;
+            }
         }
 
         private async void DownloadMediaStream(MediaStreamInfo info)
         {
-            // Create dialog
-            var fileExt = info.Container.GetFileExtension();
-            var defaultFileName = $"{Video.Title}.{fileExt}"
-                .Replace(Path.GetInvalidFileNameChars(), '_');
-            var sfd = new SaveFileDialog
+            try
             {
-                AddExtension = true,
-                DefaultExt = fileExt,
-                FileName = defaultFileName,
-                Filter = $"{info.Container} Files|*.{fileExt}|All Files|*.*"
-            };
+                // Enter busy state
+                IsBusy = true;
+                Progress = 0;
 
-            // Select file path
-            if (sfd.ShowDialog() != true)
-                return;
+                // Generate default file name
+                var fileExt = info.Container.GetFileExtension();
+                var defaultFileName = SanitizeFileName($"{Video.Title}.{fileExt}");
 
-            var filePath = sfd.FileName;
+                // Prompt file path
+                var filePath = PromptSaveFilePath(defaultFileName, $"{fileExt} files|*.{fileExt}|All Files|*.*");
+                if (filePath.IsNullOrWhiteSpace())
+                    return;
 
-            // Download to file
-            IsBusy = true;
-            Progress = 0;
+                // Set up progress handler
+                var progressHandler = new Progress<double>(p => Progress = p);
 
-            var progressHandler = new Progress<double>(p => Progress = p);
-            await _client.DownloadMediaStreamAsync(info, filePath, progressHandler);
-
-            IsBusy = false;
-            Progress = 0;
+                // Download to file
+                await _client.DownloadMediaStreamAsync(info, filePath, progressHandler);
+            }
+            finally
+            {
+                // Exit busy state
+                IsBusy = false;
+                Progress = 0;
+            }
         }
 
         private async void DownloadClosedCaptionTrack(ClosedCaptionTrackInfo info)
         {
-            // Create dialog
-            var fileExt = $"{Video.Title}.{info.Language.Name}.srt"
-                .Replace(Path.GetInvalidFileNameChars(), '_');
-            var filter = "SRT Files|*.srt|All Files|*.*";
-            var sfd = new SaveFileDialog
+            try
             {
-                AddExtension = true,
-                DefaultExt = "srt",
-                FileName = fileExt,
-                Filter = filter
-            };
+                // Enter busy state
+                IsBusy = true;
+                Progress = 0;
 
-            // Select file path
-            if (sfd.ShowDialog() != true)
-                return;
+                // Generate default file name
+                var defaultFileName = SanitizeFileName($"{Video.Title}.{info.Language.Name}.srt");
 
-            var filePath = sfd.FileName;
+                // Prompt file path
+                var filePath = PromptSaveFilePath(defaultFileName, "SRT Files|*.srt|All Files|*.*");
+                if (filePath.IsNullOrWhiteSpace())
+                    return;
 
-            // Download to file
-            IsBusy = true;
-            Progress = 0;
+                // Set up progress handler
+                var progressHandler = new Progress<double>(p => Progress = p);
 
-            var progressHandler = new Progress<double>(p => Progress = p);
-            await _client.DownloadClosedCaptionTrackAsync(info, filePath, progressHandler);
-
-            IsBusy = false;
-            Progress = 0;
+                // Download to file
+                await _client.DownloadClosedCaptionTrackAsync(info, filePath, progressHandler);
+            }
+            finally
+            {
+                // Exit busy state
+                IsBusy = false;
+                Progress = 0;
+            }
         }
     }
 }

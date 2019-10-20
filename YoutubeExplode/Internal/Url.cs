@@ -4,14 +4,14 @@ using System.Text.RegularExpressions;
 
 namespace YoutubeExplode.Internal
 {
-    internal static class UrlEx
+    internal static class Url
     {
         public static string SetQueryParameter(string url, string key, string value)
         {
             value = value ?? string.Empty;
 
             // Find existing parameter
-            var existingMatch = Regex.Match(url, $@"[?&]({Regex.Escape(key)}=?.*?)(?:&|/|$)");
+            var existingMatch = Regex.Match(url, $"[?&]({Regex.Escape(key)}=?.*?)(?:&|/|$)");
 
             // Parameter already set to something
             if (existingMatch.Success)
@@ -45,7 +45,7 @@ namespace YoutubeExplode.Internal
             value = value ?? string.Empty;
 
             // Find existing parameter
-            var existingMatch = Regex.Match(url, $@"/({Regex.Escape(key)}/?.*?)(?:/|$)");
+            var existingMatch = Regex.Match(url, $"/({Regex.Escape(key)}/?.*?)(?:/|$)");
 
             // Parameter already set to something
             if (existingMatch.Success)
@@ -71,10 +71,10 @@ namespace YoutubeExplode.Internal
         public static Dictionary<string, string> SplitQuery(string query)
         {
             var dic = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var rawParams = query.Split("&");
-            foreach (var rawParam in rawParams)
+            var paramsEncoded = query.TrimStart('?').Split("&");
+            foreach (var paramEncoded in paramsEncoded)
             {
-                var param = rawParam.UrlDecode();
+                var param = paramEncoded.UrlDecode();
 
                 // Look for the equals sign
                 var equalsPos = param.IndexOf('=');

@@ -11,16 +11,11 @@ namespace YoutubeExplode
 {
     public partial class YoutubeClient
     {
-        private async Task<string> GetSearchResultsRawAsync(string query, int page = 1)
+        private async Task<JToken> GetSearchResultsJsonAsync(string query, int page)
         {
-            query = query.UrlEncode();
-            var url = $"https://www.youtube.com/search_ajax?style=json&search_query={query}&page={page}&hl=en";
-            return await _httpClient.GetStringAsync(url, false).ConfigureAwait(false);
-        }
+            var url = $"https://youtube.com/search_ajax?style=json&search_query={query.UrlEncode()}&page={page}&hl=en";
+            var raw = await _httpClient.GetStringAsync(url, false).ConfigureAwait(false); // don't ensure success but rather return empty list
 
-        private async Task<JToken> GetSearchResultsAsync(string query, int page = 1)
-        {
-            var raw = await GetSearchResultsRawAsync(query, page).ConfigureAwait(false);
             return JToken.Parse(raw);
         }
 
@@ -32,58 +27,55 @@ namespace YoutubeExplode
 
             // Get all videos across pages
             var videos = new List<Video>();
-            for (var i = 1; i <= maxPages; i++)
+            for (var page = 1; page <= maxPages; page++)
             {
-                // Get search results
-                var searchResultsJson = await GetSearchResultsAsync(query, i).ConfigureAwait(false);
+                // Get search results JSON
+                var resultsJson = await GetSearchResultsJsonAsync(query, page).ConfigureAwait(false);
 
                 // Get videos
-                var videosJson = searchResultsJson["video"].EmptyIfNull().ToArray();
-
-                // Break if there are no videos
-                if (!videosJson.Any())
-                    break;
-
-                // Parse videos
-                foreach (var videoJson in videosJson)
+                var countDelta = 0;
+                foreach (var videoJson in resultsJson.SelectToken("video").EmptyIfNull())
                 {
-                    // Basic info
-                    var videoId = videoJson["encrypted_id"].Value<string>();
-                    var videoAuthor = videoJson["author"].Value<string>();
-                    var videoUploadDate = videoJson["added"].Value<string>().ParseDateTimeOffset("M/d/yy");
-                    var videoTitle = videoJson["title"].Value<string>();
-                    var videoDuration = TimeSpan.FromSeconds(videoJson["length_seconds"].Value<double>());
-                    var videoDescription = videoJson["description"].Value<string>().HtmlDecode();
+                    // Extract video info
+                    var videoId = videoJson.SelectToken("encrypted_id").Value<string>();
+                    var videoAuthor = videoJson.SelectToken("author").Value<string>();
+                    var videoUploadDate = videoJson.SelectToken("added").Value<string>().ParseDateTimeOffset("M/d/yy");
+                    var videoTitle = videoJson.SelectToken("title").Value<string>();
+                    var videoDescription = videoJson.SelectToken("description").Value<string>();
+                    var videoDuration = TimeSpan.FromSeconds(videoJson.SelectToken("length_seconds").Value<double>());
+                    var videoViewCount = videoJson.SelectToken("views").Value<string>().StripNonDigit().ParseLong();
+                    var videoLikeCount = videoJson.SelectToken("likes").Value<long>();
+                    var videoDislikeCount = videoJson.SelectToken("dislikes").Value<long>();
 
-                    // Keywords
-                    var videoKeywordsJoined = videoJson["keywords"].Value<string>();
-                    var videoKeywords = Regex
-                        .Matches(videoKeywordsJoined, @"(?<=(^|\s)(?<q>""?))([^""]|(""""))*?(?=\<q>(?=\s|$))")
+                    // Extract video keywords
+                    var videoKeywordsJoined = videoJson.SelectToken("keywords").Value<string>();
+                    var videoKeywords = Regex.Matches(videoKeywordsJoined, @"(?<=(^|\s)(?<q>""?))([^""]|(""""))*?(?=\<q>(?=\s|$))")
                         .Cast<Match>()
                         .Select(m => m.Value)
-                        .Where(s => s.IsNotBlank())
+                        .Where(s => !s.IsNullOrWhiteSpace())
                         .ToArray();
 
-                    // Statistics
-                    var videoViewCount = videoJson["views"].Value<string>().StripNonDigit().ParseLong();
-                    var videoLikeCount = videoJson["likes"].Value<long>();
-                    var videoDislikeCount = videoJson["dislikes"].Value<long>();
+                    // Create statistics and thumbnails
                     var videoStatistics = new Statistics(videoViewCount, videoLikeCount, videoDislikeCount);
-
-                    // Video
                     var videoThumbnails = new ThumbnailSet(videoId);
-                    var video = new Video(videoId, videoAuthor, videoUploadDate, videoTitle, videoDescription,
-                        videoThumbnails, videoDuration, videoKeywords, videoStatistics);
 
-                    videos.Add(video);
+                    // Add to list
+                    videos.Add(new Video(videoId, videoAuthor, videoUploadDate, videoTitle, videoDescription,
+                        videoThumbnails, videoDuration, videoKeywords, videoStatistics));
+
+                    // Increment delta
+                    countDelta++;
                 }
+
+                // If no distinct videos were added to the list - break
+                if (countDelta <= 0)
+                    break;
             }
 
             return videos;
         }
 
         /// <inheritdoc />
-        public Task<IReadOnlyList<Video>> SearchVideosAsync(string query)
-            => SearchVideosAsync(query, int.MaxValue);
+        public Task<IReadOnlyList<Video>> SearchVideosAsync(string query) => SearchVideosAsync(query, int.MaxValue);
     }
 }

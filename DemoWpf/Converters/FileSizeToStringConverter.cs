@@ -7,11 +7,13 @@ namespace DemoWpf.Converters
     [ValueConversion(typeof(long), typeof(string))]
     public class FileSizeToStringConverter : IValueConverter
     {
+        public static FileSizeToStringConverter Instance { get; } = new FileSizeToStringConverter();
+
         private static readonly string[] Units = { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
 
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value == null)
+            if (value is null)
                 throw new ArgumentNullException(nameof(value));
 
             double size = (long) value;

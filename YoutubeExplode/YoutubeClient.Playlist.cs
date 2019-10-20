@@ -11,16 +11,11 @@ namespace YoutubeExplode
 {
     public partial class YoutubeClient
     {
-        private async Task<string> GetPlaylistInfoRawAsync(string playlistId, int index = 0)
+        private async Task<JToken> GetPlaylistJsonAsync(string playlistId, int index)
         {
-            var url =
-                $"https://www.youtube.com/list_ajax?style=json&action_get_list=1&list={playlistId}&index={index}&hl=en";
-            return await _httpClient.GetStringAsync(url).ConfigureAwait(false);
-        }
+            var url = $"https://youtube.com/list_ajax?style=json&action_get_list=1&list={playlistId}&index={index}&hl=en";
+            var raw = await _httpClient.GetStringAsync(url).ConfigureAwait(false);
 
-        private async Task<JToken> GetPlaylistInfoAsync(string playlistId, int index = 0)
-        {
-            var raw = await GetPlaylistInfoRawAsync(playlistId, index).ConfigureAwait(false);
             return JToken.Parse(raw);
         }
 
@@ -34,83 +29,82 @@ namespace YoutubeExplode
                 throw new ArgumentException($"Invalid YouTube playlist ID [{playlistId}].", nameof(playlistId));
 
             // Get all videos across pages
-            var pagesDone = 0;
-            var offset = 0;
             JToken playlistJson;
+            var page = 1;
+            var index = 0;
             var videoIds = new HashSet<string>();
             var videos = new List<Video>();
             do
             {
-                // Get playlist info
-                playlistJson = await GetPlaylistInfoAsync(playlistId, offset).ConfigureAwait(false);
+                // Get playlist JSON
+                playlistJson = await GetPlaylistJsonAsync(playlistId, index).ConfigureAwait(false);
 
-                // Parse videos
-                var total = 0;
-                var delta = 0;
-                foreach (var videoJson in playlistJson["video"])
+                // Get videos
+                var countTotal = 0;
+                var countDelta = 0;
+                foreach (var videoJson in playlistJson.SelectToken("video").EmptyIfNull())
                 {
-                    // Basic info
-                    var videoId = videoJson["encrypted_id"].Value<string>();
-                    var videoAuthor = videoJson["author"].Value<string>();
-                    var videoUploadDate = videoJson["added"].Value<string>().ParseDateTimeOffset("M/d/yy");
-                    var videoTitle = videoJson["title"].Value<string>();
-                    var videoDuration = TimeSpan.FromSeconds(videoJson["length_seconds"].Value<double>());
-                    var videoDescription = videoJson["description"].Value<string>();
+                    // Extract video info
+                    var videoId = videoJson.SelectToken("encrypted_id").Value<string>();
+                    var videoAuthor = videoJson.SelectToken("author").Value<string>();
+                    var videoUploadDate = videoJson.SelectToken("added").Value<string>().ParseDateTimeOffset("M/d/yy");
+                    var videoTitle = videoJson.SelectToken("title").Value<string>();
+                    var videoDescription = videoJson.SelectToken("description").Value<string>();
+                    var videoDuration = TimeSpan.FromSeconds(videoJson.SelectToken("length_seconds").Value<double>());
+                    var videoViewCount = videoJson.SelectToken("views").Value<string>().StripNonDigit().ParseLong();
+                    var videoLikeCount = videoJson.SelectToken("likes").Value<long>();
+                    var videoDislikeCount = videoJson.SelectToken("dislikes").Value<long>();
 
-                    // Keywords
-                    var videoKeywordsJoined = videoJson["keywords"].Value<string>();
-                    var videoKeywords = Regex
-                        .Matches(videoKeywordsJoined, @"(?<=(^|\s)(?<q>""?))([^""]|(""""))*?(?=\<q>(?=\s|$))")
+                    // Extract video keywords
+                    var videoKeywordsJoined = videoJson.SelectToken("keywords").Value<string>();
+                    var videoKeywords = Regex.Matches(videoKeywordsJoined, @"(?<=(^|\s)(?<q>""?))([^""]|(""""))*?(?=\<q>(?=\s|$))")
                         .Cast<Match>()
                         .Select(m => m.Value)
-                        .Where(s => s.IsNotBlank())
+                        .Where(s => !s.IsNullOrWhiteSpace())
                         .ToArray();
 
-                    // Statistics
-                    var videoViewCount = videoJson["views"].Value<string>().StripNonDigit().ParseLong();
-                    var videoLikeCount = videoJson["likes"].Value<long>();
-                    var videoDislikeCount = videoJson["dislikes"].Value<long>();
+                    // Create statistics and thumbnails
                     var videoStatistics = new Statistics(videoViewCount, videoLikeCount, videoDislikeCount);
-
-                    // Video
                     var videoThumbnails = new ThumbnailSet(videoId);
-                    var video = new Video(videoId, videoAuthor, videoUploadDate, videoTitle, videoDescription,
-                        videoThumbnails, videoDuration, videoKeywords, videoStatistics);
 
-                    // Add to list if not already there
-                    if (videoIds.Add(video.Id))
+                    // Add video to the list if it's not already there
+                    if (videoIds.Add(videoId))
                     {
-                        videos.Add(video);
-                        delta++;
+                        videos.Add(new Video(videoId, videoAuthor, videoUploadDate, videoTitle, videoDescription,
+                            videoThumbnails, videoDuration, videoKeywords, videoStatistics));
+
+                        // Increment delta
+                        countDelta++;
                     }
-                    total++;
+
+                    // Increment total count
+                    countTotal++;
                 }
 
-                // Break if no distinct videos were added to the list
-                if (delta <= 0)
+                // If no distinct videos were added to the list - break
+                if (countDelta <= 0)
                     break;
 
-                // Prepare for next page
-                pagesDone++;
-                offset += total;
-            } while (pagesDone < maxPages);
+                // Advance index and page
+                index += countTotal;
+                page++;
+            } while (page <= maxPages);
 
             // Extract playlist info
-            var title = playlistJson["title"].Value<string>();
-            var author = playlistJson["author"]?.Value<string>() ?? ""; // system playlists don't have an author
-            var description = playlistJson["description"]?.Value<string>() ?? ""; // system playlists don't have description
+            var author = playlistJson.SelectToken("author")?.Value<string>() ?? ""; // system playlists have no author
+            var title = playlistJson.SelectToken("title").Value<string>();
+            var description = playlistJson.SelectToken("description")?.Value<string>() ?? "";
+            var viewCount = playlistJson.SelectToken("views")?.Value<long>() ?? 0; // system playlists have no views
+            var likeCount = playlistJson.SelectToken("likes")?.Value<long>() ?? 0; // system playlists have no likes
+            var dislikeCount = playlistJson.SelectToken("dislikes")?.Value<long>() ?? 0; // system playlists have no dislikes
 
-            // Statistics
-            var viewCount = playlistJson["views"]?.Value<long>() ?? 0; // watchlater does not have views
-            var likeCount = playlistJson["likes"]?.Value<long>() ?? 0; // system playlists don't have likes
-            var dislikeCount = playlistJson["dislikes"]?.Value<long>() ?? 0; // system playlists don't have dislikes
+            // Create statistics
             var statistics = new Statistics(viewCount, likeCount, dislikeCount);
 
             return new Playlist(playlistId, author, title, description, statistics, videos);
         }
 
         /// <inheritdoc />
-        public Task<Playlist> GetPlaylistAsync(string playlistId)
-            => GetPlaylistAsync(playlistId, int.MaxValue);
+        public Task<Playlist> GetPlaylistAsync(string playlistId) => GetPlaylistAsync(playlistId, int.MaxValue);
     }
 }

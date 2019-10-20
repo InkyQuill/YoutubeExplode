@@ -51,7 +51,9 @@ namespace YoutubeExplode.Models
         [NotNull, ItemNotNull]
         public IReadOnlyList<Video> Videos { get; }
 
-        /// <summary />
+        /// <summary>
+        /// Initializes an instance of <see cref="Playlist"/>.
+        /// </summary>
         public Playlist(string id, string author, string title, string description, Statistics statistics,
             IReadOnlyList<Video> videos)
         {
@@ -91,6 +93,9 @@ namespace YoutubeExplode.Models
 
             if (id.StartsWith("PU", StringComparison.Ordinal))
                 return PlaylistType.PopularChannelVideos;
+
+            if (id.StartsWith("OL", StringComparison.Ordinal))
+                return PlaylistType.MusicAlbum;
 
             if (id.StartsWith("LL", StringComparison.Ordinal))
                 return PlaylistType.LikedVideos;

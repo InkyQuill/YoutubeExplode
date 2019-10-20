@@ -1,28 +1,23 @@
-﻿using System;
-using YoutubeExplode.Internal;
+﻿using YoutubeExplode.Internal;
 
 namespace YoutubeExplode.Exceptions
 {
     /// <summary>
-    /// Thrown when the video requires purchase and cannot be processed.
+    /// Thrown when a video is not playable because it requires purchase.
     /// </summary>
-    public class VideoRequiresPurchaseException : Exception
+    public class VideoRequiresPurchaseException : VideoUnplayableException
     {
         /// <summary>
-        /// ID of the video.
-        /// </summary>
-        public string VideoId { get; }
-
-        /// <summary>
-        /// ID of a preview video that can be watched for free.
+        /// ID of the preview video.
         /// </summary>
         public string PreviewVideoId { get; }
 
-        /// <summary />
-        public VideoRequiresPurchaseException(string videoId, string previewVideoId)
-            : base($"Video [{videoId}] requires purchase and cannot be processed.")
+        /// <summary>
+        /// Initializes an instance of <see cref="VideoRequiresPurchaseException"/>.
+        /// </summary>
+        public VideoRequiresPurchaseException(string videoId, string previewVideoId, string message)
+            : base(videoId, message)
         {
-            VideoId = videoId.GuardNotNull(nameof(videoId));
             PreviewVideoId = previewVideoId.GuardNotNull(nameof(previewVideoId));
         }
     }

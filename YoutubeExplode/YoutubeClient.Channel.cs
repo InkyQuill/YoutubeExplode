@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using YoutubeExplode.Exceptions;
+using AngleSharp.Dom.Html;
+using AngleSharp.Parser.Html;
 using YoutubeExplode.Internal;
 using YoutubeExplode.Models;
 
@@ -10,6 +10,39 @@ namespace YoutubeExplode
 {
     public partial class YoutubeClient
     {
+        private async Task<IHtmlDocument> GetUserPageHtmlAsync(string username)
+        {
+            var url = $"https://www.youtube.com/user/{username}?hl=en";
+            var raw = await _httpClient.GetStringAsync(url).ConfigureAwait(false);
+
+            return new HtmlParser().Parse(raw);
+        }
+
+        private async Task<IHtmlDocument> GetChannelPageHtmlAsync(string channelId)
+        {
+            var url = $"https://www.youtube.com/channel/{channelId}?hl=en";
+            var raw = await _httpClient.GetStringAsync(url).ConfigureAwait(false);
+
+            return new HtmlParser().Parse(raw);
+        }
+
+        /// <inheritdoc />
+        public async Task<string> GetChannelIdAsync(string username)
+        {
+            username.GuardNotNull(nameof(username));
+
+            if (!ValidateUsername(username))
+                throw new ArgumentException($"Invalid YouTube username [{username}].");
+
+            // Get user page HTML
+            var userPageHtml = await GetUserPageHtmlAsync(username).ConfigureAwait(false);
+
+            // Extract channel URL
+            var channelUrl = userPageHtml.QuerySelector("meta[property=\"og:url\"]").GetAttribute("content");
+
+            return channelUrl.SubstringAfter("channel/");
+        }
+
         /// <inheritdoc />
         public async Task<Channel> GetChannelAsync(string channelId)
         {
@@ -18,18 +51,14 @@ namespace YoutubeExplode
             if (!ValidateChannelId(channelId))
                 throw new ArgumentException($"Invalid YouTube channel ID [{channelId}].", nameof(channelId));
 
-            // This is a hack, it gets uploads and then gets uploader info of first video
+            // Get channel page HTML
+            var channelPageHtml = await GetChannelPageHtmlAsync(channelId).ConfigureAwait(false);
 
-            // Get channel uploads
-            var uploads = await GetChannelUploadsAsync(channelId, 1).ConfigureAwait(false);
+            // Extract info
+            var channelTitle = channelPageHtml.QuerySelector("meta[property=\"og:title\"]").GetAttribute("content");
+            var channelLogoUrl = channelPageHtml.QuerySelector("meta[property=\"og:image\"]").GetAttribute("content");
 
-            // Get first video
-            var video = uploads.FirstOrDefault();
-            if (video == null)
-                throw new ParseException("Channel does not have any videos.");
-
-            // Get video channel
-            return await GetVideoAuthorChannelAsync(video.Id).ConfigureAwait(false);
+            return new Channel(channelId, channelTitle, channelLogoUrl);
         }
 
         /// <inheritdoc />
@@ -41,7 +70,7 @@ namespace YoutubeExplode
             if (!ValidateChannelId(channelId))
                 throw new ArgumentException($"Invalid YouTube channel ID [{channelId}].", nameof(channelId));
 
-            // Compose a playlist ID
+            // Generate ID for the playlist that contains all videos uploaded by this channel
             var playlistId = "UU" + channelId.SubstringAfter("UC");
 
             // Get playlist
@@ -51,7 +80,6 @@ namespace YoutubeExplode
         }
 
         /// <inheritdoc />
-        public Task<IReadOnlyList<Video>> GetChannelUploadsAsync(string channelId)
-            => GetChannelUploadsAsync(channelId, int.MaxValue);
+        public Task<IReadOnlyList<Video>> GetChannelUploadsAsync(string channelId) => GetChannelUploadsAsync(channelId, int.MaxValue);
     }
 }
