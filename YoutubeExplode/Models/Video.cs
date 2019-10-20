@@ -62,9 +62,12 @@ namespace YoutubeExplode.Models
         [NotNull]
         public Statistics Statistics { get; }
 
-        /// <summary />
+        /// <summary>
+        /// Initializes an instance of <see cref="Video"/>.
+        /// </summary>
         public Video(string id, string author, DateTimeOffset uploadDate, string title, string description,
-            ThumbnailSet thumbnails, TimeSpan duration, IReadOnlyList<string> keywords, Statistics statistics)
+            ThumbnailSet thumbnails, TimeSpan duration, IReadOnlyList<string> keywords, Statistics statistics,
+            IReadOnlyDictionary<string, string> videoInfo = null)
         {
             Id = id.GuardNotNull(nameof(id));
             Author = author.GuardNotNull(nameof(author));
@@ -75,7 +78,17 @@ namespace YoutubeExplode.Models
             Duration = duration.GuardNotNegative(nameof(duration));
             Keywords = keywords.GuardNotNull(nameof(keywords));
             Statistics = statistics.GuardNotNull(nameof(statistics));
+
+            if (videoInfo != null)
+            {
+                Raw = videoInfo;
+            }
         }
+
+        /// <summary>
+        /// Raw data for the video
+        /// </summary>
+        public IReadOnlyDictionary<string, string> Raw { get; }
 
         /// <inheritdoc />
         public override string ToString() => Title;

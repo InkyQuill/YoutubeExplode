@@ -1,3 +1,152 @@
+### v4.7.10 (23-Sep-2019)
+
+- Fixed an issue where `GetVideoMediaStreamInfosAsync` threw an exception due to recent YouTube changes.
+
+### v4.7.9 (15-Aug-2019)
+
+- Updated signature deciphering to match recent YouTube changes.
+
+### v4.7.8 (08-Aug-2019)
+
+- Fixed an issue where `UploadDate` was incorrect on videos returned from `GetPlaylistAsync`, `SearchVideosAsync` and `GetChannelUploadsAsync`.
+
+### v4.7.7 (30-Jul-2019)
+
+- Fixed an issue where most methods threw `VideoUnavailableException` on all videos due to recent YouTube changes.
+
+### v4.7.6 (10-Jul-2019)
+
+- Fixed an issue where `GetVideoMediaStreamInfosAsync` threw an exception due to recent YouTube changes.
+- Fixed how error reason is extracted from the watch page when a video is unavailable.
+
+### v4.7.5 (04-Jul-2019)
+
+- Dropped dependency on AngleSharp and replaced it with LtGt.
+- Fixed an issue where `GetChannelUploadsAsync` always returned empty result.
+
+### v4.7.4 (24-Jun-2019)
+
+- Updated how videos in a playlist are resolved to match recent YouTube changes.
+
+### v4.7.3 (21-Jun-2019)
+
+- Updated signature deciphering to match recent YouTube changes.
+
+### v4.7.2 (13-Jun-2019)
+
+- Fixed an issue where `ArgumentException` was thrown on some videos due to recent YouTube changes.
+- Improved exception messages to make them slightly more user-friendly.
+
+### v4.7.1 (17-May-2019)
+
+- Improved exception messages for cases when a video is blocked in user's country or is age-restricted and unembeddable.
+
+### v4.7 (12-May-2019)
+
+- Fixed an issue where YoutubeExplode always failed to extract media streams due to recent YouTube changes.
+
+### v4.6.8 (30-Mar-2019)
+
+- Improved performance in `GetVideoAsync` by optimizing description parser.
+
+### v4.6.7 (16-Mar-2019)
+
+- Fixed some more inconsistencies with how links in video descriptions are rendered.
+
+### v4.6.6 (24-Feb-2019)
+
+- Fixed an issue where `JsonReaderException` was thrown when downloading videos that were blocked on copyright grounds.
+
+### v4.6.5 (16-Feb-2019)
+
+- Fixed an issue where parser methods for channel ID and username failed if the URL contained query parameters.
+- Fixed some inconsistencies with how links in video descriptions are rendered.
+
+### v4.6.4 (16-Jan-2019)
+
+- Pinned AngleSharp dependency to version 0.9.11 because newer versions contain breaking changes that are currently incompatible with YoutubeExplode.
+- Improved the implementation of `GetChannelAsync` so that it's more fast and works on channels without any uploaded videos.
+
+### v4.6.3 (13-Jan-2019)
+
+- Fixed an issue where closed caption tracks were sometimes missing whitespace between words in auto-generated tracks.
+- Added an extension method to get all distinct video quality labels from a set -- `MediaStreamInfoSet.GetAllVideoQualityLabels`.
+
+### v4.6.2 (04-Jan-2019)
+
+- Fixed an issue where `GetVideoMediaStreamInfosAsync` returned empty for live stream recording videos.
+
+### v4.6.1 (03-Dec-2018)
+
+- Fixed sporadic failures in `GetVideoAuthorChannelAsync` and `GetChannelIdAsync`.
+- Re-added `VideoRequiresPurchaseException` as a child of `VideoUnplayableException`.
+
+### v4.6 (23-Nov-2018)
+
+- Switched majority of video-related parsing to a new approach, which allows circumventing signature deciphering, provides more info, and is marginally faster and more consistent. This makes `GetVideoMediaStreamInfosAsync` complete twice as fast, on average.
+- Switched from itag-based property mapping to manual string parsing, which should be more stable in the long run.
+- Added `MediaStreamInfoSet.ValidUntil` property which can be used to determine when the contained streams will expire.
+- Fixed an issue where controversial videos could not be parsed.
+- Removed `User-Agent` header from default request headers.
+- Removed `VideoQuality.GetVideoQualityLabel` extension method.
+- Removed `MediaStreamInfo.GetUrlExpiryDate` extension method.
+- Removed `VideoRequiresPurchaseException` and replaced it with `VideoUnplayableException` which covers a wider spectrum of errors.
+- `VideoUnavailableException` no longer has properties for error code and error reason. Error code was basically useless so it was removed, error reason is now part of the `Message` property.
+- Removed `ParseException` entirely.
+- Some enum values in `AudioEncoding`, `VideoEncoding` and `Container` types were marked as obsolete because they are no longer used by YouTube.
+
+### v4.5.3 (07-Nov-2018)
+
+- Fixed an issue where signature decipherer was throwing an exception due to recent YouTube changes.
+
+### v4.5.2 (02-Nov-2018)
+
+- Fixed an issue where `GetVideoAsync` was throwing an exception due to recent YouTube changes.
+
+### v4.5.1 (24-Oct-2018)
+
+- Fixed an issue where `GetVideoMediaStreamInfosAsync` was sometimes returning adaptive streams that were not working. There are very rare cases where it still might happen.
+
+### v4.5 (20-Oct-2018)
+
+- Fixed an issue where external links were truncated in `Video.Description` if they are too long.
+- Added support for seeking in `MediaStream`.
+
+### v4.4 (20-Oct-2018)
+
+- Improved `GetVideoAsync`, `GetVideoAuthorChannelAsync` and `GetVideoClosedCaptionTrackInfosAsync` so that they don't fail on unavailable videos.
+- Added extra result validation to `GetChannelIdAsync` to verify that the extracted value is indeed a valid channel ID.
+- Added static methods to parse and validate YouTube usernames.
+
+### v4.3.4 (16-Oct-2018)
+
+- Fixed an issue where `JsonReaderException` was thrown on all videos due to recent YouTube changes.
+- Added support for itag 394.
+- Added `GetChannelIdAsync` method that retrieves channel ID from username.
+- Added support for OL playlists.
+
+### v4.3.3 (26-Sep-2018)
+
+- Added support for AV1 video codec.
+
+### v4.3.2 (11-Sep-2018)
+
+- Fixed an issue where `ParseException` was thrown on signature-protected videos due to recent YouTube changes.
+
+### v4.3.1 (28-Aug-2018)
+
+- Fixed an issue where retrieving some streams may throw a 403 HTTP error due to recent YouTube changes.
+
+### v4.3 (25-Jul-2018)
+
+- Reworked `GetMediaStreamAsync` so that it implements the workaround for rate-limited streams, which was originally only available in `DownloadMediaStreamAsync`. This is achieved by returning a stream that internally sends multiple segmented requests in a sequence.
+- Fixed `MediaStream.ReadAsync` not using the `ReadAsync` of the underlying stream.
+- Fixed `GetVideoQualityLabel` so that it displays the framerate as rounded up to the nearest 10, instead of always displaying it as '60'.
+
+### v4.2.8 (14-Jun-2018)
+
+- Fixed an issue where some non-embeddable videos could not be processed.
+
 ### v4.2.7 (09-Jun-2018)
 
 - Fixed an issue where non-embeddable age-restricted videos could not be processed.

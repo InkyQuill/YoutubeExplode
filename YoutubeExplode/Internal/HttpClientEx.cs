@@ -24,7 +24,7 @@ namespace YoutubeExplode.Internal
 
             // Configure client
             var client = new HttpClient(handler, true);
-            client.DefaultRequestHeaders.Add("User-Agent", "YoutubeExplode (github.com/Tyrrrz/YoutubeExplode)");
+            //client.DefaultRequestHeaders.Add("User-Agent", "YoutubeExplode (github.com/Tyrrrz/YoutubeExplode)");
 
             return _singleton = client;
         }
@@ -38,8 +38,7 @@ namespace YoutubeExplode.Internal
         public static async Task<string> GetStringAsync(this HttpClient client, string requestUri,
             bool ensureSuccess = true)
         {
-            using (var response = await client.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead)
-                .ConfigureAwait(false))
+            using (var response = await client.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false))
             {
                 if (ensureSuccess)
                     response.EnsureSuccessStatusCode();
@@ -56,8 +55,7 @@ namespace YoutubeExplode.Internal
 
             using (request)
             {
-                var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead)
-                    .ConfigureAwait(false);
+                var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
 
                 if (ensureSuccess)
                     response.EnsureSuccessStatusCode();
@@ -65,5 +63,20 @@ namespace YoutubeExplode.Internal
                 return await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
             }
         }
+
+        public static async Task<long?> GetContentLengthAsync(this HttpClient client, string requestUri,
+            bool ensureSuccess = true)
+        {
+            using (var response = await client.HeadAsync(requestUri).ConfigureAwait(false))
+            {
+                if (ensureSuccess)
+                    response.EnsureSuccessStatusCode();
+
+                return response.Content.Headers.ContentLength;
+            }
+        }
+
+        public static SegmentedHttpStream CreateSegmentedStream(this HttpClient httpClient, string url, long length, long segmentSize) =>
+            new SegmentedHttpStream(httpClient, url, length, segmentSize);
     }
 }
