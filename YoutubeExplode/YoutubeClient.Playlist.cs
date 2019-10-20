@@ -31,7 +31,7 @@ namespace YoutubeExplode
             // Get all videos across pages
             JToken playlistJson;
             var page = 1;
-            var index = 0;
+            var index = playlistId.StartsWith("PL", StringComparison.OrdinalIgnoreCase) ? 101 : 0;
             var videoIds = new HashSet<string>();
             var videos = new List<Video>();
             do
@@ -40,14 +40,15 @@ namespace YoutubeExplode
                 playlistJson = await GetPlaylistJsonAsync(playlistId, index).ConfigureAwait(false);
 
                 // Get videos
-                var countTotal = 0;
                 var countDelta = 0;
                 foreach (var videoJson in playlistJson.SelectToken("video").EmptyIfNull())
                 {
+                    var epoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
                     // Extract video info
                     var videoId = videoJson.SelectToken("encrypted_id").Value<string>();
                     var videoAuthor = videoJson.SelectToken("author").Value<string>();
-                    var videoUploadDate = videoJson.SelectToken("added").Value<string>().ParseDateTimeOffset("M/d/yy");
+                    var videoUploadDate = epoch + TimeSpan.FromSeconds(videoJson.SelectToken("time_created").Value<long>());
                     var videoTitle = videoJson.SelectToken("title").Value<string>();
                     var videoDescription = videoJson.SelectToken("description").Value<string>();
                     var videoDuration = TimeSpan.FromSeconds(videoJson.SelectToken("length_seconds").Value<double>());
@@ -57,10 +58,11 @@ namespace YoutubeExplode
 
                     // Extract video keywords
                     var videoKeywordsJoined = videoJson.SelectToken("keywords").Value<string>();
-                    var videoKeywords = Regex.Matches(videoKeywordsJoined, @"(?<=(^|\s)(?<q>""?))([^""]|(""""))*?(?=\<q>(?=\s|$))")
+                    var videoKeywords = Regex.Matches(videoKeywordsJoined, "\"[^\"]+\"|\\S+")
                         .Cast<Match>()
                         .Select(m => m.Value)
                         .Where(s => !s.IsNullOrWhiteSpace())
+                        .Select(s => s.Trim('"'))
                         .ToArray();
 
                     // Create statistics and thumbnails
@@ -76,9 +78,6 @@ namespace YoutubeExplode
                         // Increment delta
                         countDelta++;
                     }
-
-                    // Increment total count
-                    countTotal++;
                 }
 
                 // If no distinct videos were added to the list - break
@@ -86,7 +85,7 @@ namespace YoutubeExplode
                     break;
 
                 // Advance index and page
-                index += countTotal;
+                index += 100;
                 page++;
             } while (page <= maxPages);
 

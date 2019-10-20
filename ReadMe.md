@@ -1,7 +1,8 @@
 # YoutubeExplode
 
-[![Build](https://img.shields.io/appveyor/ci/Tyrrrz/YoutubeExplode/master.svg)](https://ci.appveyor.com/project/Tyrrrz/YoutubeExplode)
-[![Tests](https://img.shields.io/appveyor/tests/Tyrrrz/YoutubeExplode/master.svg)](https://ci.appveyor.com/project/Tyrrrz/YoutubeExplode)
+[![Build](https://img.shields.io/appveyor/ci/Tyrrrz/YoutubeExplode/master.svg)](https://ci.appveyor.com/project/Tyrrrz/YoutubeExplode/branch/master)
+[![Tests](https://img.shields.io/appveyor/tests/Tyrrrz/YoutubeExplode/master.svg)](https://ci.appveyor.com/project/Tyrrrz/YoutubeExplode/branch/master/tests)
+[![Coverage](https://img.shields.io/codecov/c/gh/Tyrrrz/YoutubeExplode/master.svg)](https://codecov.io/gh/Tyrrrz/YoutubeExplode)
 [![NuGet](https://img.shields.io/nuget/v/YoutubeExplode.svg)](https://nuget.org/packages/YoutubeExplode)
 [![NuGet](https://img.shields.io/nuget/dt/YoutubeExplode.svg)](https://nuget.org/packages/YoutubeExplode)
 [![Donate](https://img.shields.io/badge/patreon-donate-yellow.svg)](https://patreon.com/tyrrrz)
@@ -30,7 +31,7 @@ YoutubeExplode is a library that provides an interface to query metadata of YouT
 
 ## Screenshots
 
-![](http://www.tyrrrz.me/Projects/YoutubeExplode/Images/1.png)
+![demo](.screenshots/demo.png)
 
 ## Usage
 
@@ -44,12 +45,16 @@ You can also use [YoutubeExplode.Converter](https://github.com/Tyrrrz/YoutubeExp
 
 ### Parse ID from URL
 
+Most methods require video/playlist/channel ID which you can extract from any valid URL using one of the static parse methods.
+
 ```c#
 var url = "https://www.youtube.com/watch?v=bnsUkE8i0tU";
 var id = YoutubeClient.ParseVideoId(url); // "bnsUkE8i0tU"
 ```
 
 ### Get video info
+
+You can get video metadata by passing its ID to `GetVideoAsync` method.
 
 ```c#
 var client = new YoutubeClient();
@@ -62,6 +67,10 @@ var duration = video.Duration; // 00:07:14
 ```
 
 ### Download video
+
+If you want to download a video, you first need to get info on all its streams using `GetVideoMediaStreamInfosAsync`, then choose the stream you want to download, then pass it to `DownloadMediaStreamAsync` method. You can also use `GetMediaStreamAsync` to get the stream itself.
+
+Keep in mind that the streams are split into Muxed (audio+video), Audio (audio only) and Video (video only).
 
 ```c#
 var client = new YoutubeClient();
@@ -91,6 +100,8 @@ await client.DownloadMediaStreamAsync(streamInfo, $"downloaded_video.{ext}");
 
 ### Extract closed captions
 
+Similarly to streams, you can extract closed captions by getting the info on all available tracks using `GetVideoClosedCaptionTrackInfosAsync`, choosing the one you're interested in, then resolving it with `GetClosedCaptionTrackAsync`. If you want, you can also download the track as an SRT file by calling `DownloadClosedCaptionTrackAsync`.
+
 ```c#
 var client = new YoutubeClient();
 
@@ -110,6 +121,8 @@ var text = caption.Text; // "And the game was afoot."
 
 ### Get playlist info
 
+YoutubeExplode is not limited to just videos so you can also use it to get the contents of a playlist and all associated metadata by calling `GetPlaylistAsync` method.
+
 ```c#
 var client = new YoutubeClient();
 
@@ -123,13 +136,18 @@ var videoTitle = video.Title; // "Igorrr - Tout Petit Moineau"
 var videoAuthor = video.Author; // "Igorrr Official"
 ```
 
+## Etymology
+
+The "Explode" in YoutubeExplode comes from the name of a PHP function that splits up strings, [`explode()`](https://www.php.net/manual/en/function.explode.php). When I was just starting development on this library, most of the reference source code I read was written in PHP, hence the inspiration for the name.
+
 ## Libraries used
 
-- [AngleSharp](https://github.com/AngleSharp/AngleSharp)
+- [LtGt](https://github.com/Tyrrrz/LtGt)
 - [Newtonsoft.Json](https://github.com/JamesNK/Newtonsoft.Json)
 - [GalaSoft.MVVMLight](http://www.mvvmlight.net)
 - [MaterialDesignInXamlToolkit](https://github.com/ButchersBoy/MaterialDesignInXamlToolkit)
 - [NUnit](https://github.com/nunit/nunit)
+- [Coverlet](https://github.com/tonerdo/coverlet)
 - [Tyrrrz.Extensions](https://github.com/Tyrrrz/Extensions)
 
 ## Donate
